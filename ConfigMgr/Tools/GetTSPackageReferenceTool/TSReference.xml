@@ -1,0 +1,20 @@
+<ActionDescription Class="Executable" DisplayName="Show Package References" MnemonicDisplayName="Show Package References" Description="v" SqmDataPoint="53">
+	<ShowOn>
+		<string>ContextMenu</string>
+	</ShowOn>
+    <ResourceAssembly>
+		<Assembly>AdminUI.CollectionProperty.dll</Assembly>
+			<Type>Microsoft.ConfigurationManagement.AdminConsole.CollectionProperty.Properties.Resources.resources</Type>
+	</ResourceAssembly>
+		<ImagesDescription>
+			<ResourceAssembly>
+				<Assembly>AdminUI.UIResources.dll</Assembly>
+				<Type>Microsoft.ConfigurationManagement.AdminConsole.UIResources.Properties.Resources.resources</Type>
+			</ResourceAssembly>
+		<ImageResourceName>OSD_TaskSequenceList</ImageResourceName>
+	</ImagesDescription>
+	<Executable>
+		<FilePath>"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"</FilePath>
+		<Parameters>-windowstyle hidden -executionpolicy bypass -file "C:\Scripts\Get-TSPackageReferences.ps1" -SiteServer "##SUB:__Server##" -TaskSequence "##SUB:Name##"</Parameters>
+	</Executable>
+</ActionDescription>
