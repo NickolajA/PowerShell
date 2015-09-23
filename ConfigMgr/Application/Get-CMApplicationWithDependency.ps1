@@ -1,19 +1,21 @@
 ﻿<#
 .SYNOPSIS
-
+    List all Applications in ConfigMgr 2012 that have one or more dependencies configured
 .DESCRIPTION
-
+    This script will enumerate through all the Applications in ConfigMgr 2012 and output a custom object for those applications
+    that have a dependency configured for any of the DeploymentTypes
 .PARAMETER SiteServer
     Site server name with SMS Provider installed
 .PARAMETER ShowProgress
     Show a progressbar displaying the current operation
 .EXAMPLE
-    
+    List Applications with dependencies on a Primary Site server called 'CM01':
+    .\Get-CMApplicationWithDependency.ps1 -SiteServer -ShowProgress
 .NOTES
-    Script name: <script name>.ps1
+    Script name: Get-CMApplicationWithDependency.ps1
     Author:      Nickolaj Andersen
     Contact:     @NickolajA
-    DateCreated: 2014-11-17
+    DateCreated: 2015-09-23
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
