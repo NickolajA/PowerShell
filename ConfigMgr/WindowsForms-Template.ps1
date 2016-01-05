@@ -14,13 +14,13 @@ Begin {
 	    Write-Warning -Message "Access denied when attempting to load required assemblies" ; break
     }
     catch [System.Exception] {
-	    Write-Warning -Message "Unable to load required assemblies. Error message: $($_.Exception.Message) Line: $($_.InvocationInfo.ScriptLineNumber)" ; break
+	    Write-Warning -Message "Unable to load required assemblies. Error message: $($_.Exception.Message). Line: $($_.InvocationInfo.ScriptLineNumber)" ; break
     }
 }
 Process {
     function Load-Form {
 	    $Form.Add_Shown({$Form.Activate()})
-	    $Form.ShowDialog()
+	    $Form.ShowDialog() | Out-Null
     }
 
     # Forms

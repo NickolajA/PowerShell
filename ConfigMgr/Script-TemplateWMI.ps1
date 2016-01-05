@@ -13,7 +13,7 @@
     Script name: <script name>.ps1
     Author:      Nickolaj Andersen
     Contact:     @NickolajA
-    DateCreated: 2014-11-17
+    DateCreated: 2016-01-01
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
@@ -27,12 +27,12 @@ param(
 Begin {
     # Determine SiteCode from WMI
     try {
-        Write-Verbose -Message "Determining SiteCode for Site Server: '$($SiteServer)'"
+        Write-Verbose "Determining Site Code for Site server: '$($SiteServer)'"
         $SiteCodeObjects = Get-WmiObject -Namespace "root\SMS" -Class SMS_ProviderLocation -ComputerName $SiteServer -ErrorAction Stop
         foreach ($SiteCodeObject in $SiteCodeObjects) {
             if ($SiteCodeObject.ProviderForLocalSite -eq $true) {
                 $SiteCode = $SiteCodeObject.SiteCode
-                Write-Debug -Message "SiteCode: $($SiteCode)"
+                Write-Verbose -Message "Site Code: $($SiteCode)"
             }
         }
     }
@@ -40,7 +40,7 @@ Begin {
         Write-Warning -Message "Access denied" ; break
     }
     catch [System.Exception] {
-        Write-Warning -Message "Unable to determine SiteCode" ; break
+        Write-Warning -Message "Unable to determine Site Code" ; break
     }
 }
 Process {

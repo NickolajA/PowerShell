@@ -13,7 +13,7 @@
     .\Create-CMMaintenanceCollections.ps1 -SiteServer CM01 -LimitingCollectionName "All Systems" -FolderName "Maintenance Collections"
      Create the Maintenance Collections with a limiting collection of 'All Systems' in a folder called 'Maintenance Collections' on a Primary Site server called 'CM01':
 .NOTES
-    Script name: Create-CMMaintenanceCollections.ps1
+    Script name: Create-CMClientVersionCollections.ps1
     Author:      Nickolaj Andersen
     Contact:     @NickolajA
     DateCreated: 2015-03-15

@@ -39,7 +39,7 @@
  
     <Executable>
         <FilePath>"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"</FilePath>
-        <Parameters>-executionpolicy bypass -file #PATH# -SiteServer #SERVER# -RemoveContent -ShowProgress -Verbose</Parameters>
+        <Parameters>-executionpolicy bypass -file #PATH# -SiteServer #SERVER# -Option ExpiredSuperseded -RemoveContent -ShowProgress -Verbose</Parameters>
       </Executable>
     </ActionDescription>
  
@@ -67,7 +67,7 @@
  
     <Executable>
         <FilePath>"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"</FilePath>
-        <Parameters>-executionpolicy bypass -file #PATH# -SiteServer #SERVER# -ShowProgress -Verbose</Parameters>
+        <Parameters>-executionpolicy bypass -file #PATH# -SiteServer #SERVER# -Option ExpiredSuperseded -ShowProgress -Verbose</Parameters>
       </Executable>
     </ActionDescription>
  
@@ -95,7 +95,7 @@
  
     <Executable>
         <FilePath>"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"</FilePath>
-        <Parameters>-executionpolicy bypass -file #PATH# -SiteServer #SERVER# -ExpiredOnly -RemoveContent -ShowProgress -Verbose</Parameters>
+        <Parameters>-executionpolicy bypass -file #PATH# -SiteServer #SERVER# -Option ExpiredOnly -RemoveContent -ShowProgress -Verbose</Parameters>
       </Executable>
     </ActionDescription>
  
@@ -123,7 +123,63 @@
  
     <Executable>
         <FilePath>"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"</FilePath>
-        <Parameters>-executionpolicy bypass -file #PATH# -SiteServer #SERVER# -ExpiredOnly -ShowProgress -Verbose</Parameters>
+        <Parameters>-executionpolicy bypass -file #PATH# -SiteServer #SERVER# -Option ExpiredOnly -ShowProgress -Verbose</Parameters>
+      </Executable>
+    </ActionDescription>
+ 
+  </ActionGroups>
+  
+    <ActionGroups>
+    <ActionDescription Class="Executable" DisplayName="Superseded Only (Remove content)" MnemonicDisplayName="Superseded Only (Remove content)" Description="Superseded Only (Remove content)">
+ 
+    <ShowOn>
+	<string>DefaultHomeTab</string>
+        <string>ContextMenu</string>
+    </ShowOn>
+	  
+	<ResourceAssembly>
+		<Assembly>AdminUI.CollectionProperty.dll</Assembly>
+			<Type>Microsoft.ConfigurationManagement.AdminConsole.CollectionProperty.Properties.Resources.resources</Type>
+	</ResourceAssembly>
+		<ImagesDescription>
+			<ResourceAssembly>
+				<Assembly>AdminUI.UIResources.dll</Assembly>
+				<Type>Microsoft.ConfigurationManagement.AdminConsole.UIResources.Properties.Resources.resources</Type>
+			</ResourceAssembly>
+		<ImageResourceName>SUM_Update</ImageResourceName>
+	</ImagesDescription>
+ 
+    <Executable>
+        <FilePath>"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"</FilePath>
+        <Parameters>-executionpolicy bypass -file #PATH# -SiteServer #SERVER# -Option SupersededOnly -RemoveContent -ShowProgress -Verbose</Parameters>
+      </Executable>
+    </ActionDescription>
+ 
+  </ActionGroups>
+
+  <ActionGroups>
+    <ActionDescription Class="Executable" DisplayName="Superseded Only (Keep content)" MnemonicDisplayName="Superseded Only (Keep content)" Description="Superseded Only (Keep content)">
+ 
+    <ShowOn>
+	<string>DefaultHomeTab</string>
+        <string>ContextMenu</string>
+    </ShowOn>
+	  
+	<ResourceAssembly>
+		<Assembly>AdminUI.CollectionProperty.dll</Assembly>
+			<Type>Microsoft.ConfigurationManagement.AdminConsole.CollectionProperty.Properties.Resources.resources</Type>
+	</ResourceAssembly>
+		<ImagesDescription>
+			<ResourceAssembly>
+				<Assembly>AdminUI.UIResources.dll</Assembly>
+				<Type>Microsoft.ConfigurationManagement.AdminConsole.UIResources.Properties.Resources.resources</Type>
+			</ResourceAssembly>
+		<ImageResourceName>SUM_Update</ImageResourceName>
+	</ImagesDescription>
+ 
+    <Executable>
+        <FilePath>"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"</FilePath>
+        <Parameters>-executionpolicy bypass -file #PATH# -SiteServer #SERVER# -Option SupersededOnly -ShowProgress -Verbose</Parameters>
       </Executable>
     </ActionDescription>
  

@@ -27,12 +27,12 @@ param(
 Begin {
     # Determine SiteCode from WMI
     try {
-        Write-Verbose -Message "Determining SiteCode for Site Server: '$($SiteServer)'"
+        Write-Verbose "Determining Site Code for Site server: '$($SiteServer)'"
         $SiteCodeObjects = Get-WmiObject -Namespace "root\SMS" -Class SMS_ProviderLocation -ComputerName $SiteServer -ErrorAction Stop
         foreach ($SiteCodeObject in $SiteCodeObjects) {
             if ($SiteCodeObject.ProviderForLocalSite -eq $true) {
                 $SiteCode = $SiteCodeObject.SiteCode
-                Write-Debug -Message "SiteCode: $($SiteCode)"
+                Write-Verbose -Message "Site Code: $($SiteCode)"
             }
         }
     }
@@ -40,36 +40,40 @@ Begin {
         Write-Warning -Message "Access denied" ; break
     }
     catch [System.Exception] {
-        Write-Warning -Message "Unable to determine SiteCode" ; break
+        Write-Warning -Message "Unable to determine Site Code" ; break
     }
     # Load ConfigMgr module
     try {
         $SiteDrive = $SiteCode + ":"
-        Import-Module -Name ConfigurationManager -ErrorAction Stop
+        Import-Module -Name ConfigurationManager -ErrorAction Stop -Verbose:$false
     }
     catch [System.UnauthorizedAccessException] {
         Write-Warning -Message "Access denied" ; break
     }
     catch [System.Exception] {
         try {
-            Import-Module (Join-Path -Path (($env:SMS_ADMIN_UI_PATH).Substring(0,$env:SMS_ADMIN_UI_PATH.Length-5)) -ChildPath "\ConfigurationManager.psd1") -Force -ErrorAction Stop
+            Import-Module (Join-Path -Path (($env:SMS_ADMIN_UI_PATH).Substring(0,$env:SMS_ADMIN_UI_PATH.Length-5)) -ChildPath "\ConfigurationManager.psd1") -Force -ErrorAction Stop -Verbose:$false
             if ((Get-PSDrive $SiteCode -ErrorAction SilentlyContinue | Measure-Object).Count -ne 1) {
-                New-PSDrive -Name $SiteCode -PSProvider "AdminUI.PS.Provider\CMSite" -Root $SiteServer -ErrorAction Stop
+                New-PSDrive -Name $SiteCode -PSProvider "AdminUI.PS.Provider\CMSite" -Root $SiteServer -ErrorAction Stop -Verbose:$false
             }
         }
         catch [System.UnauthorizedAccessException] {
             Write-Warning -Message "Access denied" ; break
         }
         catch [System.Exception] {
-            Write-Warning -Message "$($_.Exception.Message) $($_.InvocationInfo.ScriptLineNumber)" ; break
+            Write-Warning -Message "$($_.Exception.Message). Line: $($_.InvocationInfo.ScriptLineNumber)" ; break
         }
     }
-    # Set location to the CMSite drive
-    Set-Location -Path $SiteDrive -ErrorAction Stop
+    # Determine and set location to the CMSite drive
+    $CurrentLocation = $PSScriptRoot
+    Set-Location -Path $SiteDrive -ErrorAction Stop -Verbose:$false
 }
 Process {
     if ($PSBoundParameters["ShowProgress"]) {
         $ProgressCount = 0
     }
     # Main code part goes here
+}
+End {
+    Set-Location -Path $CurrentLocation
 }

@@ -1,41 +1,42 @@
 ﻿<#
 .Synopsis
-   Installs or uninstalls the Clean Software Update Groups console extension for 
-   System Center Configuration Manager 2012 & 2012R2
+   Installs or uninstalls the Clean Software Update Groups console extension for ConfigMgr.
 .DESCRIPTION
-   Configures settings for and installs a console extension to remove expired and (optionally) superseded 
-   updates from software update groups in SCCM.
+   Configures settings for and installs a console extension to remove expired and superseded 
+   updates from software update groups in ConfigMgr.
 .PARAMETER SiteServer
-   Specifies the name of the Site Server where the SMS Provider is installed. (NOT the Site Code!)
-
+   Specifies the name of the Site Server where the SMS Provider is installed.
+.PARAMETER Method
+   Runs the script in either 'Install' or 'Uninstall' mode.
 .PARAMETER Path
-    Sets the path where the Clean Software Update Groups script file will be stored (Or removed from, 
-    if the run with -Uninstall).  This path must already exist, the script will not create the path 
-    if it is not found. 
-.PARAMETER Uninstall 
-   Runs the script in "Uninstall" mode, to remove the console extension from a computer where it has
-   been previously installed. 
+    Sets the path where the Clean Software Update Groups script file will be stored. This path must 
+    already exist, the script will not create the path if it is not found.
 .EXAMPLE
-    PS > Invoke-ToolInstallation.ps1 -SiteServer Siteserver.domain.com -Path C:\Scripts -Verbose
+    PS > Invoke-ToolInstallation.ps1 -SiteServer CM01.contoso.com -Method Install -Path C:\Scripts -Verbose
     VERBOSE: ConfigMgr console environment variable detected: C:\Program Files (x86)\Microsoft Configuration Manager\AdminConsole\bin\i386
     VERBOSE: Creating folder: 'C:\Program Files (x86)\Microsoft Configuration Manager\AdminConsole\XmlStorage\Extensions\Actions\23e7a3fe-b0f0-4b24-813a-dc425239f9a2'
     VERBOSE: Editing 'CleanSoftwareUpdateGroups.xml' to contain the correct path to script file
     VERBOSE: Copying 'CleanSoftwareUpdateGroups.xml' to Software Update Groups node action folder
     VERBOSE: Copying 'Clean-CMSoftwareUpdateGroups.ps1' to: 'C:\Scripts'
 .EXAMPLE
-    PS > Invoke-ToolInstallation.ps1 -Uninstall -path c:\scripts\ -Verbose
+    PS > Invoke-ToolInstallation.ps1 -SiteServer CM01.contoso.com -Method Uninstall -Path C:\Scripts -Verbose
     VERBOSE: ConfigMgr console environment variable detected: C:\Program Files (x86)\Microsoft Configuration Manager\AdminConsole\bin\i386
     VERBOSE: Found folder: 'C:\Program Files (x86)\Microsoft Configuration Manager\AdminConsole\XmlStorage\Extensions\Actions\23e7a3fe-b0f0-4b24-813a-dc425239f9a2'
     VERBOSE: Removing 'CleanSoftwareUpdateGroups.xml' from Software Update Groups node action folder
+    VERBOSE: Removing 'Clean-CMSoftwareUpdateGroups.ps1' from 'C:\Scripts'
 #>
-
-[CmdletBinding(SupportsShouldProcess=$true) ]
+[CmdletBinding(SupportsShouldProcess=$true)]
 param(
-    [parameter(Mandatory=$true, HelpMessage="Site server where the SMS Provider is installed", ParameterSetName="Install")]
+    [parameter(Mandatory=$true, HelpMessage="Site server where the SMS Provider is installed")]
     [ValidateNotNullOrEmpty()]
     [string]$SiteServer,
-    [parameter(Mandatory=$true, HelpMessage="Specify a valid path to where the Clean Software Update Groups script file will be stored", ParameterSetName="Install")]
-    [parameter(Mandatory=$true, ParameterSetName="Uninstall")]
+
+    [parameter(Mandatory=$true, HelpMessage="Specify installation method")]
+    [ValidateNotNullOrEmpty()]
+    [ValidateSet("Install","Uninstall")]
+    [string]$Method,
+
+    [parameter(Mandatory=$true, HelpMessage="Specify a valid path to where the Clean Software Update Groups script file will be stored")]
     [ValidateNotNullOrEmpty()]
     [ValidatePattern("^[A-Za-z]{1}:\\\w+")]
     [ValidateScript({
@@ -53,9 +54,7 @@ param(
             }
         }
     })]
-    [string]$Path,
-    [parameter(Mandatory=$true, ParameterSetName="Uninstall")]
-    [switch]$Uninstall
+    [string]$Path
 )
 Begin {
     # Validate that the script is being executed elevated
@@ -113,12 +112,6 @@ Begin {
             Write-Verbose -Message "Found folder: '$($CurrentNode)'"
         }
     }
-    if ($Uninstall){
-        $Method = "Uninstall"
-    }
-    else {
-        $Method = "Install"
-    }
 }
 Process {
     switch ($Method) {
@@ -155,20 +148,31 @@ Process {
         }
         "Uninstall" {
             # Remove XML file from Software Update Groups node
-            Write-Verbose -Message "Removing '$XMLFile' from Software Update Groups node action folder"
-            $XMLStorageDevicesArgs = @{
-                Path = Join-Path -Path $AdminConsoleRoot -ChildPath "XmlStorage\Extensions\Actions\$Node\$XMLFile"
+            Write-Verbose -Message "Removing '$($XMLFile)' from Software Update Groups node action folder"
+            $XMLStorageSUGArgs = @{
+                Path = Join-Path -Path $AdminConsoleRoot -ChildPath "XmlStorage\Extensions\Actions\$($Node)\$($XMLFile)"
                 Force = $true
                 ErrorAction = "SilentlyContinue"
             }
-            Remove-Item @XMLStorageDevicesArgs
+            if (Test-Path -Path (Join-Path -Path $AdminConsoleRoot -ChildPath "XmlStorage\Extensions\Actions\$($Node)\$($XMLFile)")) {
+                Remove-Item @XMLStorageSUGArgs
+            }
+            else {
+                Write-Warning -Message "Unable to locate '$(Join-Path -Path $AdminConsoleRoot -ChildPath "XmlStorage\Extensions\Actions\$($Node)\$($XMLFile)")'"
+            }
             # Remove script file from specified path
-            Write-Verbose -Message "Removing '$ScriptFile' from: '$Path'"
+            Write-Verbose -Message "Removing '$($ScriptFile)' from '$($Path)'"
             $ScriptFileArgs = @{
                 Path = Join-Path -Path $Path -ChildPath $ScriptFile
                 Force = $true
             }
-            Remove-Item @ScriptFileArgs
+            if (Test-Path -Path (Join-Path -Path $Path -ChildPath $ScriptFile)) {
+                Remove-Item @ScriptFileArgs
+            }
+            else {
+                Write-Warning -Message "Unable to locate '$(Join-Path -Path $Path -ChildPath $ScriptFile)'"
+            }
         }
     }
 }
+

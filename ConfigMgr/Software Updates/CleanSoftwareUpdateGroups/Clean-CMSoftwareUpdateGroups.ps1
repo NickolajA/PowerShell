@@ -1,94 +1,127 @@
 ﻿<#
 .SYNOPSIS
-    Perform a clean up of all Software Updates Groups in ConfigMgr 2012
+    Perform a clean up of expired and/or supersded Software Updates in all Software Update Groups
 .DESCRIPTION
-    Use this script if you need to perform a clean up of expired or superseded Software Updates in all Software Upgrade Groups in ConfigMgr 2012
+    Use this script if you need to perform a clean up of expired and/or superseded Software Updates from all Software Upgrade Groups in ConfigMgr
 .PARAMETER SiteServer
     Site server name with SMS Provider installed
-.PARAMETER ExpiredOnly
-    Only remove expired Software Updates. This includes updates that are both expired and superseded. It does, however, exclude updates that are superseded but not expired
+.PARAMETER Option
+    Select an option to clean either ExpiredOnly, SupersededOnly or ExpiredSuperseded Software Updates from each Software Update Group
 .PARAMETER RemoveContent
     Remove the content for those Software Updates that will be removed from a Software Upgrade Group
 .PARAMETER ShowProgress
     Show a progressbar displaying the current operation
 .EXAMPLE
-    .\Clean-CMSoftwareUpdateGroups.ps1 -SiteServer CM01 -RemoveContent -ShowProgress
-    Clean all Software Update Groups, while showing the current progress, on a Primary Site server called 'CM01':
+    Clean Software Update Groups from expired Software Updates, while showing the current progress and removing downloaded content, on a Primary Site server called 'CM01':
+    .\Clean-CMSoftwareUpdateGroups.ps1 -SiteServer CM01 -Option ExpiredOnly -RemoveContent -ShowProgress
+
+    Clean Software Update Groups from superseded Software Updates, while showing the current progress, on a Primary Site server called 'CM01':
+    .\Clean-CMSoftwareUpdateGroups.ps1 -SiteServer CM01 -Option SupersededOnly -ShowProgress
+
+    Clean Software Update Groups from expired and supersded Software Updates with verbose output, on a Primary Site server called 'CM01':
+    .\Clean-CMSoftwareUpdateGroups.ps1 -SiteServer CM01 -Option ExpiredSuperseded -Verbose
+    
 .NOTES
-    Script name: Clean-CMSoftwareUpdateGroups.ps1
+    Name:        Clean-CMSoftwareUpdateGroups.ps1
     Author:      Nickolaj Andersen
     Contact:     @NickolajA
-    DateCreated: 2015-03-15
-	
-	With contributions from Merlijn Van Waeyenberghe.
+    Created:     2015-12-15
+    Version:     2.0
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
-    [parameter(Mandatory=$true,HelpMessage="Site server where the SMS Provider is installed")]
+    [parameter(Mandatory=$true, HelpMessage="Site server where the SMS Provider is installed")]
     [ValidateScript({Test-Connection -ComputerName $_ -Count 1 -Quiet})]
+    [ValidateNotNullOrEmpty()]
     [string]$SiteServer,
-    [parameter(Mandatory=$false,HelpMessage="Only remove expired Software Updates. This includes updates that are both expired and superseded. It does, however, exclude updates that are superseded but not expired")]
-    [switch]$ExpiredOnly,
-    [parameter(Mandatory=$false,HelpMessage="Remove the content for those Software Updates that will be removed from a Software Upgrade Group")]
+
+    [parameter(Mandatory=$true, HelpMessage="Select an option to clean either ExpiredOnly, SupersededOnly or ExpiredSuperseded Software Updates from each Software Update Group")]
+    [ValidateNotNullOrEmpty()]
+    [ValidateSet("ExpiredOnly","SupersededOnly","ExpiredSuperseded")]
+    [string]$Option,
+
+    [parameter(Mandatory=$false, HelpMessage="Remove the content for those Software Updates that will be removed from a Software Upgrade Group")]
+    [ValidateNotNullOrEmpty()]
     [switch]$RemoveContent,
-    [parameter(Mandatory=$false,HelpMessage="Show a progressbar displaying the current operation")]
+
+    [parameter(Mandatory=$false, HelpMessage="Show a progressbar displaying the current operation")]
+    [ValidateNotNullOrEmpty()]
     [switch]$ShowProgress
 )
 Begin {
     # Determine SiteCode from WMI
     try {
-        Write-Verbose "Determining SiteCode for Site Server: '$($SiteServer)'"
+        Write-Verbose "Determining Site Code for Site server: '$($SiteServer)'"
         $SiteCodeObjects = Get-WmiObject -Namespace "root\SMS" -Class SMS_ProviderLocation -ComputerName $SiteServer -ErrorAction Stop
         foreach ($SiteCodeObject in $SiteCodeObjects) {
             if ($SiteCodeObject.ProviderForLocalSite -eq $true) {
                 $SiteCode = $SiteCodeObject.SiteCode
-                Write-Debug "SiteCode: $($SiteCode)"
+                Write-Verbose -Message "Site Code: $($SiteCode)"
             }
         }
     }
-    catch [Exception] {
-        Throw "Unable to determine SiteCode"
+    catch [System.UnauthorizedAccessException] {
+        Write-Warning -Message "Access denied" ; break
+    }
+    catch [System.Exception] {
+        Write-Warning -Message "Unable to determine Site Code" ; break
+    }
+    # Temporarily set ErrorActionPreference
+    $ErrorActionPreference = "Stop"
+    # Set ProgressCount
+    if ($PSBoundParameters["ShowProgress"]) {
+        $ProgressCount = 0
     }
 }
 Process {
     try {
+        $StartTime = [Diagnostics.Stopwatch]::StartNew()
         $SUGResults = (Get-WmiObject -Namespace "root\SMS\site_$($SiteCode)" -Class SMS_AuthorizationList -ComputerName $SiteServer -ErrorAction SilentlyContinue | Measure-Object).Count
         if ($SUGResults -ge 1) {
+            # Get list of removable Software Updates
+            switch ($Option) {
+                "ExpiredOnly" {
+                    $Query = "SELECT SU.CI_ID FROM SMS_SoftwareUpdate AS SU JOIN SMS_CIRelation AS CIR ON SU.CI_ID = CIR.ToCIID WHERE CIR.RelationType = 1 AND SU.IsExpired = 1 AND SU.IsSuperseded = 0"
+                }
+                "SupersededOnly" {
+                    $Query = "SELECT SU.CI_ID FROM SMS_SoftwareUpdate AS SU JOIN SMS_CIRelation AS CIR ON SU.CI_ID = CIR.ToCIID WHERE CIR.RelationType = 1 AND SU.IsExpired = 0 AND SU.IsSuperseded = 1"
+                }
+                "ExpiredSuperseded" {
+                    $Query = "SELECT SU.CI_ID FROM SMS_SoftwareUpdate AS SU JOIN SMS_CIRelation AS CIR ON SU.CI_ID = CIR.ToCIID WHERE CIR.RelationType = 1 AND SU.IsExpired = 1 AND SU.IsSuperseded = 1"
+                }
+            }
+            try {
+                $RemovableUpdates = Get-WmiObject -Namespace "root\SMS\site_$($SiteCode)" -Query $Query -ComputerName $SiteServer -ErrorAction Stop
+                $RemovableUpdatesList = New-Object -TypeName System.Collections.ArrayList
+                foreach ($RemovableUpdate in $RemovableUpdates) {
+                    $RemovableUpdatesList.Add($RemovableUpdate.CI_ID) | Out-Null
+                }
+            }
+            catch [System.Exception] {
+                Write-Warning -Message "Unable to determine removable Software Updates from selected option"
+            }
+            # Enumerate each Software Update Group
             $AuthorizationLists = Get-WmiObject -Namespace "root\SMS\site_$($SiteCode)" -Class SMS_AuthorizationList -ComputerName $SiteServer -ErrorAction Stop
             foreach ($AuthorizationList in $AuthorizationLists) {
-                $AuthorizationList = [wmi]"$($AuthorizationList.__PATH)"
                 Write-Verbose -Message "Start processing '$($AuthorizationList.LocalizedDisplayName)'"
+                if ($PSBoundParameters["ShowProgress"]) {
+                    $ProgressCount++
+                }
+                Write-Progress -Activity "Processing Software Updates Groups" -Id 1 -Status "$($ProgressCount) / $($SUGResults)" -CurrentOperation "Current Software Update Group: '$($AuthorizationList.LocalizedDisplayName)'" -PercentComplete (($ProgressCount / $SUGResults) * 100)
+                $AuthorizationList = [wmi]"$($AuthorizationList.__PATH)"
                 $UpdatesCount = $AuthorizationList.Updates.Count
                 $UpdatesList = New-Object -TypeName System.Collections.ArrayList
                 $RemovedUpdatesList = New-Object -TypeName System.Collections.ArrayList
-                if ($PSBoundParameters["ShowProgress"]) {
-                    $ProgressCount = 0
-                }
+                # Enumerate each Software Update in current Software Update Group if eligible for removal
                 foreach ($Update in ($AuthorizationList.Updates)) {
-                    $CIID = Get-WmiObject -Namespace "root\SMS\site_$($SiteCode)" -Class SMS_SoftwareUpdate -ComputerName $SiteServer -Filter "CI_ID = '$($Update)'" -ErrorAction Stop
-                    if ($PSBoundParameters["ShowProgress"]) {
-                        $ProgressCount++
-                        Write-Progress -Activity "Processing Software Updates in '$($AuthorizationList.LocalizedDisplayName)'" -Id 1 -Status "$($ProgressCount) / $($UpdatesCount)" -CurrentOperation "$($CIID.LocalizedDisplayName)" -PercentComplete (($ProgressCount / $UpdatesCount) * 100)
-                    }
-                    if ($CIID.IsExpired -eq $true) {
-                        #Write-Verbose -Message "Update '$($CIID.LocalizedDisplayName)' was expired and will be removed from '$($AuthorizationList.LocalizedDisplayName)'"
-                        if ($CIID.CI_ID -notin $RemovedUpdatesList) {
-                            $RemovedUpdatesList.Add($CIID.CI_ID) | Out-Null
-                        }
-                    }
-                    elseif (($CIID.IsSuperseded -eq $true) -and (-not($PSBoundParameters["ExpiredOnly"]))) {
-                        #Write-Verbose -Message "Update '$($CIID.LocalizedDisplayName)' was superseded and will be removed from '$($AuthorizationList.LocalizedDisplayName)'"
-                        if ($CIID.CI_ID -notin $RemovedUpdatesList) {
-                            $RemovedUpdatesList.Add($CIID.CI_ID) | Out-Null
-                        }
+                    if ($Update -notin $RemovableUpdatesList) {
+                        $UpdatesList.Add($Update) | Out-Null
                     }
                     else {
-                        if ($CIID.CI_ID -notin $UpdatesList) {
-                            $UpdatesList.Add($CIID.CI_ID) | Out-Null
-                        }
+                        $RemovedUpdatesList.Add($Update) | Out-Null
                     }
                 }
-                # Process the list of Updates added to the ArrayList only if the count is less what's in the actualy Software Update Group
+                # Update Software Update Group updates if count of objects in UpdatesList is less than before
                 if ($UpdatesCount -gt $UpdatesList.Count) {
                     try {
                         if ($PSCmdlet.ShouldProcess("$($AuthorizationList.LocalizedDisplayName)","Clean '$($UpdatesCount - ($UpdatesList.Count))' updates")) {
@@ -102,7 +135,8 @@ Process {
                                 $DeploymentPackageList = New-Object -TypeName System.Collections.ArrayList
                                 foreach ($CI_ID in $RemovedUpdatesList) {
                                     Write-Verbose -Message "Collecting content data for CI_ID: $($CI_ID)"
-                                    $ContentData = Get-WmiObject -Namespace "root\SMS\site_$($SiteCode)" -Query "SELECT SMS_PackageToContent.ContentID,SMS_PackageToContent.PackageID from SMS_PackageToContent JOIN SMS_CIToContent on SMS_CIToContent.ContentID = SMS_PackageToContent.ContentID where SMS_CIToContent.CI_ID in ($($CI_ID))" -ComputerName $SiteServer -ErrorAction Stop
+                                    $ContentQuery = "SELECT SMS_PackageToContent.ContentID,SMS_PackageToContent.PackageID from SMS_PackageToContent JOIN SMS_CIToContent ON SMS_CIToContent.ContentID = SMS_PackageToContent.ContentID WHERE SMS_CIToContent.CI_ID IN ($($CI_ID))"
+                                    $ContentData = Get-WmiObject -Namespace "root\SMS\site_$($SiteCode)" -Query $ContentQuery -ComputerName $SiteServer -ErrorAction Stop
                                     Write-Verbose -Message "Found '$(($ContentData | Measure-Object).Count)' objects"
                                     foreach ($Content in $ContentData) {
                                         $ContentID = $Content | Select-Object -ExpandProperty ContentID
@@ -133,19 +167,18 @@ Process {
                 else {
                     Write-Verbose -Message "No changes detected, will not update '$($AuthorizationList.LocalizedDisplayName)'"
                 }
-                # Refresh Deployment Packages
                 # Refresh content source for all Deployment Packages in the DeploymentPackageList array
                 if (($DeploymentPackageList.Count -ge 1) -and ($PSBoundParameters["RemoveContent"])) {
-                foreach ($DPackageID in $DeploymentPackageList) {
-                    if ($PSCmdlet.ShouldProcess("$($DPackageID)","Refresh content source")) {
-                        $DPackage = [wmi]"\\$($SiteServer)\root\SMS\site_$($SiteCode):SMS_SoftwareUpdatesPackage.PackageID='$($DPackageID)'"
-                        Write-Verbose -Message "Attempting to refresh content source for Deployment Package '$($DPackage.Name)'"
-                        $ReturnValue = $DPackage.RefreshPkgSource()
-                        if ($ReturnValue.ReturnValue -eq 0) {
-                            Write-Verbose -Message "Successfully refreshed content source for Deployment Package '$($DPackage.Name)'"
+                    foreach ($DPackageID in $DeploymentPackageList) {
+                        if ($PSCmdlet.ShouldProcess("$($DPackageID)","Refresh content source")) {
+                            $DPackage = [wmi]"\\$($SiteServer)\root\SMS\site_$($SiteCode):SMS_SoftwareUpdatesPackage.PackageID='$($DPackageID)'"
+                            Write-Verbose -Message "Attempting to refresh content source for Deployment Package '$($DPackage.Name)'"
+                            $ReturnValue = $DPackage.RefreshPkgSource()
+                            if ($ReturnValue.ReturnValue -eq 0) {
+                                Write-Verbose -Message "Successfully refreshed content source for Deployment Package '$($DPackage.Name)'"
+                            }
                         }
                     }
-                }
                 }
             }
         }
@@ -154,11 +187,17 @@ Process {
         }
     }
     catch [Exception] {
-        Throw $_.Exception.Message
+        Write-Error -Message $_.Exception.Message
     }
 }
 End {
+    # Temporarily set ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    # Complete write progress activity    
     if ($PSBoundParameters["ShowProgress"]) {
-        Write-Progress -Activity "Enumerating Software Updates" -Completed -ErrorAction SilentlyContinue
+        Write-Progress -Activity "Processing Software Update Groups" -Completed -ErrorAction SilentlyContinue
     }
+    # Output script exection time
+    $StartTime.Stop()
+    Write-Verbose -Message "Script execution: $($StartTime.Elapsed.Minutes) min and $($StartTime.Elapsed.Seconds) seconds"
 }
