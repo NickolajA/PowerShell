@@ -26,13 +26,14 @@
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
-    [parameter(Mandatory=$false, HelpMessage="List user accounts eligible for removal instead of being removed")]
+    [parameter(Mandatory=$false, ParameterSetName="List", HelpMessage="List user accounts eligible for removal instead of being removed")]
     [ValidateNotNullOrEmpty()]
     [switch]$List,
-    [parameter(Mandatory=$false, HelpMessage="Removed user accounts will be removed from the Recycle Bin")]
+    [parameter(Mandatory=$false, ParameterSetName="Purge", HelpMessage="Removed user accounts will be removed from the Recycle Bin")]
     [ValidateNotNullOrEmpty()]
     [switch]$Purge,
-    [parameter(Mandatory=$false, HelpMessage="Show a progressbar displaying the current operation")]
+    [parameter(Mandatory=$false, ParameterSetName="List", HelpMessage="Show a progressbar displaying the current operation")]
+	[parameter(Mandatory=$false, ParameterSetName="Purge")]
     [ValidateNotNullOrEmpty()]
     [switch]$ShowProgress
 )
