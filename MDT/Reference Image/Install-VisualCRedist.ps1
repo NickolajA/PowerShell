@@ -54,6 +54,9 @@ Process {
             [ValidateNotNullOrEmpty()]
             [string]$CurrentWorkingDirectory
         )
+        if ($Script:PSBoundParameters["ShowProgress"]) {
+            $ProgressCount = 0
+        }
         # Determine application executable list
         $ApplicationExecutableFolders = Get-ChildItem -LiteralPath $CurrentWorkingDirectory -Filter "*$($ApplicationArchitecture)*" | Select-Object -ExpandProperty FullName
         # Validate that the Source directory is not empty
@@ -85,23 +88,17 @@ Process {
                     }
                 }
                 else {
-                    Write-Warning -Message "Skipping folder due to the supported number of files are unsupported: $($ApplicationExecutableFolder)"
+                    Write-Warning -Message "Skipping folder due to unsupported number of files in: $($ApplicationExecutableFolder)"
                 }
             }
             if ($Script:PSBoundParameters["ShowProgress"]) {
-                Write-Progress -Activity "Installing Microsoft Visual C++ Redistributables ($($ApplicationArchitecture))" -Id 1 -Completed
+                Write-Progress -Activity "Installing Microsoft Visual C++ Redistributables ($($ApplicationArchitecture))" -Id 1 -Completed -Status "Completed"
             }
         }
     }
 
     # Install Microsoft Visual C++ Redistributables
-    if ($PSBoundParameters["ShowProgress"]) {
-        $ProgressCount = 0
-    }
     foreach ($Arch in $Architecture) {
-        switch ($Arch) {
-            "x86" { Install-ApplicationExectuable -ApplicationArchitecture $Arch -CurrentWorkingDirectory (Join-Path -Path (Split-Path -Path $MyInvocation.MyCommand.Definition -Parent) -ChildPath "\Source") }
-            "x64" { Install-ApplicationExectuable -ApplicationArchitecture $Arch -CurrentWorkingDirectory (Join-Path -Path (Split-Path -Path $MyInvocation.MyCommand.Definition -Parent) -ChildPath "\Source") }
-        }
+        Install-ApplicationExectuable -ApplicationArchitecture $Arch -CurrentWorkingDirectory (Join-Path -Path (Split-Path -Path $MyInvocation.MyCommand.Definition -Parent) -ChildPath "\Source")
     }
 }
