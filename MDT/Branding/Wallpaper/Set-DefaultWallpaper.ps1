@@ -59,56 +59,51 @@ catch [System.Exception] {
 }
 
 # Process C:\Windows\WEB\4K\Wallpaper\Windows recursively
-try {
-    $HDWallpaperRoot = Join-Path -Path $PSScriptRoot -ChildPath "4K"
-    $HDWallpapers = Get-ChildItem -Path $HDWallpaperRoot
-    if (($HDWallpapers | Measure-Object).Count -ge 1) {
-        $LocalHDWallpapersPath = Join-Path -Path $env:WINDIR -ChildPath "WEB\4K\Wallpaper\Windows"
-        $LocalHDWallpapers = Get-ChildItem -Path $LocalHDWallpapersPath -Recurse -Filter *.jpg
-        foreach ($LocalHDWallpaper in $LocalHDWallpapers) {
-            # Take ownership
-            $CurrentOwner = Get-Item -Path $LocalHDWallpaper.FullName | Get-NTFSOwner
-            if ($CurrentOwner.Owner -notlike $NewOwner) {
-                Write-Output "Setting new owner of '$($NewOwner)' on: $($LocalHDWallpaper.FullName)"
-                Set-NTFSOwner -Path $LocalHDWallpaper.FullName -Account $NewOwner -ErrorAction Stop
-            }
+$HDWallpaperRoot = Join-Path -Path $PSScriptRoot -ChildPath "4K"
+$HDWallpapers = Get-ChildItem -Path $HDWallpaperRoot
+if (($HDWallpapers | Measure-Object).Count -ge 1) {
+	$LocalHDWallpapersPath = Join-Path -Path $env:WINDIR -ChildPath "WEB\4K\Wallpaper\Windows"
+	$LocalHDWallpapers = Get-ChildItem -Path $LocalHDWallpapersPath -Recurse -Filter *.jpg
+	foreach ($LocalHDWallpaper in $LocalHDWallpapers) {
+		# Take ownership
+		$CurrentOwner = Get-Item -Path $LocalHDWallpaper.FullName | Get-NTFSOwner
+		if ($CurrentOwner.Owner -notlike $NewOwner) {
+			Write-Output "Setting new owner of '$($NewOwner)' on: $($LocalHDWallpaper.FullName)"
+			Set-NTFSOwner -Path $LocalHDWallpaper.FullName -Account $NewOwner -ErrorAction Stop
+		}
 
-            # Grant NT AUTHORITY\SYSTEM Full Control access
-            try {
-                Write-Output "Granting '$($SystemContext)' Full Control on: $($LocalHDWallpaper.FullName)"
-                Add-NTFSAccess -Path $LocalHDWallpaper.FullName -Account $SystemContext -AccessRights FullControl -AccessType Allow -ErrorAction Stop
-                Write-Output "Granting '$($NewOwner)' Full Control on: $($LocalHDWallpaper.FullName)"
-                Add-NTFSAccess -Path $LocalHDWallpaper.FullName -Account $NewOwner -AccessRights FullControl -AccessType Allow -ErrorAction Stop
-            }
-            catch [System.Exception] {
-                Write-Warning -Message "Unable to grant required Full Control permissions on: $($LocalHDWallpaper.FullName)" ; break
-            }
+		# Grant NT AUTHORITY\SYSTEM Full Control access
+		try {
+			Write-Output "Granting '$($SystemContext)' Full Control on: $($LocalHDWallpaper.FullName)"
+			Add-NTFSAccess -Path $LocalHDWallpaper.FullName -Account $SystemContext -AccessRights FullControl -AccessType Allow -ErrorAction Stop
+			Write-Output "Granting '$($NewOwner)' Full Control on: $($LocalHDWallpaper.FullName)"
+			Add-NTFSAccess -Path $LocalHDWallpaper.FullName -Account $NewOwner -AccessRights FullControl -AccessType Allow -ErrorAction Stop
+		}
+		catch [System.Exception] {
+			Write-Warning -Message "Unable to grant required Full Control permissions on: $($LocalHDWallpaper.FullName)" ; break
+		}
 
-            # Remove default wallpaper
-            try {
-                Write-Output "Removing default wallpaper: $($LocalHDWallpaper.FullName)"
-                Remove-Item -Path $LocalHDWallpaper.FullName -Force -ErrorAction Stop
-            }
-            catch [System.Exception] {
-                Write-Warning -Message "Unable to remove default wallpaper: $($LocalHDWallpaper.FullName)" ; break
-            }
-        }
+		# Remove default wallpaper
+		try {
+			Write-Output "Removing default wallpaper: $($LocalHDWallpaper.FullName)"
+			Remove-Item -Path $LocalHDWallpaper.FullName -Force -ErrorAction Stop
+		}
+		catch [System.Exception] {
+			Write-Warning -Message "Unable to remove default wallpaper: $($LocalHDWallpaper.FullName)" ; break
+		}
+	}
 
-        # Copy default wallpapers
-        foreach ($HDWallpaper in $HDWallpapers) {
-            try {
-                Write-Output "Copying '$($HDWallpaper.FullName)' wallpaper to: $($LocalHDWallpapersPath)"
-                Copy-Item -Path $HDWallpaper.FullName -Destination $LocalHDWallpapersPath -Force -ErrorAction Stop
-            }
-            catch [System.Exception] {
-                Write-Warning -Message "Unable to copy default wallpaper '$($HDWallpaper.FullName)' to: $($LocalHDWallpapersPath)" ; break
-            }
-        }
-    }
-    else {
-        Write-Output "Unable to locate wallpapers in 4K root folder when processing, skipping the 4K wallpapers"
-    }
+	# Copy default wallpapers
+	foreach ($HDWallpaper in $HDWallpapers) {
+		try {
+			Write-Output "Copying '$($HDWallpaper.FullName)' wallpaper to: $($LocalHDWallpapersPath)"
+			Copy-Item -Path $HDWallpaper.FullName -Destination $LocalHDWallpapersPath -Force -ErrorAction Stop
+		}
+		catch [System.Exception] {
+			Write-Warning -Message "Unable to copy default wallpaper '$($HDWallpaper.FullName)' to: $($LocalHDWallpapersPath)" ; break
+		}
+	}
 }
-catch [System.Exception] {
-    Write-Warning -Message "Unable to take ownership of: $($DefaultWallpaperImagePath)" ; break
+else {
+	Write-Output "Unable to locate wallpapers in 4K root folder when processing, skipping the 4K wallpapers"
 }
