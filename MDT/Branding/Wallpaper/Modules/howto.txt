@@ -1,0 +1,2 @@
+Download the NTFSSecurity PowerShell module from 'https://ntfssecurity.codeplex.com/' and extract it into this folder. 
+Do not create a sub-folder, simply just extract the contents of the module.
