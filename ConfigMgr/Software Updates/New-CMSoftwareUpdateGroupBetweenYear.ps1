@@ -139,7 +139,7 @@ Process {
         $ProductsTable.Add($ProductObject.LocalizedCategoryInstanceName, $ProductObject.CategoryInstance_UniqueID)
     }
 
-    # Defince beginning of Software Updates query
+    # Construct beginning of Software Updates query
     $SoftwareUpdatesQuery = "SELECT SMS_SoftwareUpdate.* FROM SMS_SoftwareUpdate WHERE (SMS_SoftwareUpdate.CI_ID NOT IN (SELECT CI_ID FROM SMS_CIAllCategories WHERE CategoryInstance_UniqueID='UpdateClassification:3689bdc8-b205-4af4-8d4a-a63924c5e9d5'))"
     
     # Construct year part of query
