@@ -35,7 +35,7 @@
     Author:      Nickolaj Andersen
     Contact:     @NickolajA
     Created:     2016-03-22
-    Updated:     2016-03-22
+    Updated:     2016-03-27
     Version:     1.0.0
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
