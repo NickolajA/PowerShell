@@ -185,6 +185,6 @@ Process {
         New-SoftwareUpdateGroupList -SoftwareUpdateGroupName $Name -UpdatesList $SoftwareUpdates.CI_ID
     }
     else {
-        Write-Warning -Message "Specified search for Software Updates between '$($StartYear)' and '$($EndYear)'"
+        Write-Warning -Message "Specified search for Software Updates between '$($StartYear)' and '$($EndYear)' did not return any Software Updates"
     }
 }
