@@ -182,7 +182,14 @@ Process {
     # Create Software Update Group
     $SoftwareUpdates = Get-WmiObject -Namespace "root\SMS\site_$($SiteCode)" -Query $SoftwareUpdatesQuery
     if ($SoftwareUpdates -ne $null) {
-        New-SoftwareUpdateGroupList -SoftwareUpdateGroupName $Name -UpdatesList $SoftwareUpdates.CI_ID
+        if (($SoftwareUpdates | Measure-Object).Count -eq 1 ) {
+            $UpdateList = New-Object -TypeName System.Collections.ArrayList
+            $UpdateList.Add($SoftwareUpdates.CI_ID) | Out-Null
+            New-SoftwareUpdateGroupList -SoftwareUpdateGroupName $Name -UpdatesList $UpdateList
+        }
+        else {
+            New-SoftwareUpdateGroupList -SoftwareUpdateGroupName $Name -UpdatesList $SoftwareUpdates.CI_ID
+        }
     }
     else {
         Write-Warning -Message "Specified search for Software Updates between '$($StartYear)' and '$($EndYear)' did not return any Software Updates"
