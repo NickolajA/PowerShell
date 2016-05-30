@@ -113,9 +113,16 @@ Process {
             if ($UpdatesCount -gt $UpdatesList.Count) {
                 try {
                     if ($PSCmdlet.ShouldProcess("$($AuthorizationList.LocalizedDisplayName)","Clean '$($UpdatesCount - ($UpdatesList.Count))' updates")) {
-                        $AuthorizationList.Updates = $UpdatesList
-                        $AuthorizationList.Put() | Out-Null
-                        Write-Verbose -Message "Successfully cleaned up $($UpdatesCount - ($UpdatesList.Count)) updates from '$($AuthorizationList.LocalizedDisplayName)'"
+                        if ($UpdatesList.Count -ge 1) {
+                            $AuthorizationList.Updates = $UpdatesList
+                            $AuthorizationList.Put() | Out-Null
+                            Write-Verbose -Message "Successfully cleaned up $($UpdatesCount - ($UpdatesList.Count)) updates from '$($AuthorizationList.LocalizedDisplayName)'"
+                        }
+                        else {
+                            $AuthorizationList.Updates = @()
+                            $AuthorizationList.Put() | Out-Null
+                            Write-Verbose -Message "Successfully cleaned up all updates from '$($AuthorizationList.LocalizedDisplayName)'"
+                        }
                     }
                     # Remove content for each CI_ID in the RemovedUpdatesList array
                     if ($PSBoundParameters["RemoveContent"]) {
