@@ -18,13 +18,13 @@
 
 .EXAMPLE
     Convert a managed domain name called 'domain.com' to federated authentication and use an on-premise Active Directory Federation Services primary server called 'ADFS01.domain.local' as the configuration context:
-    .\Set-MSOLDomainToFederated.ps1 -Computer ADFS01.domain.local -DomainName domain.com
+    .\Convert-AADDomainToFederated.ps1 -Computer ADFS01.domain.local -DomainName domain.com
 
     Convert a managed domain name called 'domain.com' to federated authentication with support for additional domains and use an on-premise Active Directory Federation Services primary server called 'ADFS01.domain.local' as the configuration context:
-    .\Set-MSOLDomainToFederated.ps1 -Computer ADFS01.domain.local -DomainName domain.com -SupportMultipleDomain
+    .\Convert-AADDomainToFederated.ps1 -Computer ADFS01.domain.local -DomainName domain.com -SupportMultipleDomain
 
 .NOTES
-    FileName:    Set-MSOLDomainToFederated.ps1
+    FileName:    Convert-AADDomainToFederated.ps1
     Author:      Nickolaj Andersen
     Contact:     @NickolajA
     Created:     2015-08-12
