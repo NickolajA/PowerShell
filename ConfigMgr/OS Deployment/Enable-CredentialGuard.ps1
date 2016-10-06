@@ -4,18 +4,24 @@
 
 .DESCRIPTION
     This script will enable a Windows 10 device being installed through OS Deployment with ConfigMgr to leverage Credential Guard
-    in order to provent pass-the-hash attacks.
+    in order to prevent pass-the-hash attacks.
 
 .EXAMPLE
     .\Enable-CredentialGuard.ps1
+
+.NOTES
+
+    Version history:
+    1.0.0 - (2016-06-08) Script created
+    1.0.1 - (2016-08-10) Script updated to support Windows 10 version 1607 that no longer required the Isolated User Mode feature, since it's embedded in the hypervisor
 
 .NOTES
     FileName:    Enable-CredentialGuard.ps1
     Author:      Nickolaj Andersen
     Contact:     @NickolajA
     Created:     2016-06-08
-    Updated:     2016-06-08
-    Version:     1.0.0
+    Updated:     2016-08-10
+    Version:     1.0.1
 #>
 Begin {
     # Construct TSEnvironment object
@@ -56,67 +62,38 @@ Process {
         $Context = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
 
         # Construct final log entry
-        $LogText = "<![LOG[$($Value)]LOG]!><time=""$($Time)"" date=""$($Date)"" component=""DynamicApplicationsList"" context=""$($Context)"" type=""$($Severity)"" thread=""$($PID)"" file="""">"
+        $LogText = "<![LOG[$($Value)]LOG]!><time=""$($Time)"" date=""$($Date)"" component=""CredentialGuard"" context=""$($Context)"" type=""$($Severity)"" thread=""$($PID)"" file="""">"
 	
 	    # Add value to log file
         try {
 	        Add-Content -Value $LogText -LiteralPath $LogFilePath -ErrorAction Stop
         }
         catch [System.Exception] {
-            Write-Warning -Message "Unable to append log entry to smsts.log file"
+            Write-Warning -Message "Unable to append log entry to EnableCredentialGuard.log file"
         }
-    }
-
-    function Invoke-Executable {
-        param(
-            [parameter(Mandatory=$true, HelpMessage="Specify the name of the executable to be invoked including the extension")]
-            [ValidateNotNullOrEmpty()]
-            [string]$Name,
-
-            [parameter(Mandatory=$false, HelpMessage="Specify arguments that will be passed to the executable")]
-            [ValidateNotNull()]
-            [string]$Arguments
-        )
-
-        if ([System.String]::IsNullOrEmpty($Arguments)) {
-            try {
-                $ReturnValue = Start-Process -FilePath $Name -NoNewWindow -Passthru -Wait -ErrorAction Stop
-            }
-            catch [System.Exception] {
-                Write-Warning -Message $_.Exception.Message ; break
-            }
-        }
-        else {
-            try {
-                $ReturnValue = Start-Process -FilePath $Name -ArgumentList $Arguments -NoNewWindow -Passthru -Wait -ErrorAction Stop
-            }
-            catch [System.Exception] {
-                Write-Warning -Message $_.Exception.Message ; break
-            }
-        }
-
-        # Return exit code from executable
-        return $ReturnValue.ExitCode
     }
 
     # Write beginning of log file
     Write-CMLogEntry -Value "Starting configuration for Credential Guard" -Severity 1
 
     # Enable required Windows Features for Credential Guard
-    $FeatureHyperVisor = Invoke-Executable -Name dism.exe -Arguments "/Online /Enable-Feature /FeatureName:Microsoft-Hyper-V-HyperVisor /All /LimitAccess /NoRestart"
-    if ($FeatureHyperVisor -in @(0, 3010)) {
-        Write-CMLogEntry -Value "Successfully enabled Microsoft-Hyper-V-HyperVisor feature" -Severity 1    
+    try {
+        Enable-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V-HyperVisor -Online -All -LimitAccess -NoRestart -ErrorAction Stop
+        Write-CMLogEntry -Value "Successfully enabled Microsoft-Hyper-V-HyperVisor feature" -Severity 1
     }
-    else {
-        Write-CMLogEntry -Value "When enabling Microsoft-Hyper-V-HyperVisor feature, an unexpected exit code of $($FeatureHyperVisor) was returned" -Severity 3
+    catch [System.Exception] {
+        Write-CMLogEntry -Value "An error occured when enabling Microsoft-Hyper-V-HyperVisor feature, see DISM log for more information" -Severity 3
     }
 
-    $FeatureIsolatedUserMode = Invoke-Executable -Name dism.exe -Arguments "/Online /Enable-Feature /FeatureName:IsolatedUserMode /LimitAccess /NoRestart"
-    if ($FeatureIsolatedUserMode -in @(0, 3010)) {
-        Write-CMLogEntry -Value "Successfully enabled IsolatedUserMode feature" -Severity 1    
-    }
-    else {
-        Write-CMLogEntry -Value "When enabling IsolatedUserMode feature, an unexpected exit code of $($FeatureIsolatedUserMode) was returned" -Severity 3
+    # For version older than Windows 10 version 1607 (build 14939), add the IsolatedUserMode feature as well
+    if ([int](Get-WmiObject -Class Win32_OperatingSystem).BuildNumber -lt 14393) {
+        try {
+            Enable-WindowsOptionalFeature -FeatureName IsolatedUserMode -Online -All -LimitAccess -NoRestart -ErrorAction Stop
+            Write-CMLogEntry -Value "Successfully enabled IsolatedUserMode feature" -Severity 1
+        }
+        catch [System.Exception] {
+            Write-CMLogEntry -Value "An error occured when enabling IsolatedUserMode feature, see DISM log for more information" -Severity 3
+        }
     }
     
     # Add required registry key for Credential Guard
