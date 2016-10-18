@@ -11,11 +11,14 @@
 .PARAMETER FolderName
     Define a Device Collection folder name where the collections will be moved to.
 
+.PARAMETER CollectionNamePrefix
+    Prefix for the Device Collections this script creates.
+
 .PARAMETER LimitingCollectionName
     Name of a collection that will be used as Limiting Collection.
 
 .EXAMPLE
-    .\New-CMWindowsServicingCollections.ps1 -SiteServer CM01 -FolderName "Limiting Collections"
+    .\New-CMWindowsServicingCollections.ps1 -SiteServer CM01 -FolderName "Windows Servicing"
 
 .NOTES
     FileName:    New-CMWindowsServicingCollections.ps1
@@ -26,6 +29,7 @@
     
     Version history:
     1.0.0 - (2016-10-18) Script created
+    1.0.1 - (2016-10-10) Added support for collection name prefix
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
@@ -37,6 +41,10 @@ param(
     [parameter(Mandatory=$false, HelpMessage="Define a Device Collection folder name where the collections will be moved to.")]
     [ValidateNotNullOrEmpty()]
     [string]$FolderName,
+
+    [parameter(Mandatory=$false, HelpMessage="Prefix for the Device Collections this script creates.")]
+    [ValidateNotNullOrEmpty()]
+    [string]$CollectionNamePrefix = "WS - ",
 
     [parameter(Mandatory=$false, HelpMessage="Name of a collection that will be used as Limiting Collection.")]
     [ValidateNotNullOrEmpty()]
@@ -107,32 +115,36 @@ Process {
 
     # Table of collections
     $CollectionTable = @{
-        "LC - Windows 10 Current Branch (CB)" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.OperatingSystemNameandVersion like 'Workstation 10.0%' and SMS_R_System.OSBranch = '0'"
-        "LC - Windows 10 Current Branch for Business (CBB)" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.OperatingSystemNameandVersion like 'Workstation 10.0%' and SMS_R_System.OSBranch = '1'"
-        "LC - Windows 10 Long Term Servicing Branch (LTSB)" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.OperatingSystemNameandVersion like 'Workstation 10.0%' and SMS_R_System.OSBranch = '2'"
-        "LC - Windows 10 Feature Servicing State - Current" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System  LEFT OUTER JOIN SMS_WindowsServicingStates ON SMS_WindowsServicingStates.Build = SMS_R_System.build01 AND SMS_WindowsServicingStates.branch = SMS_R_System.osbranch01 where SMS_WindowsServicingStates.State = '2'"
-        "LC - Windows 10 Feature Servicing State - Expires Soon" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System  LEFT OUTER JOIN SMS_WindowsServicingStates ON SMS_WindowsServicingStates.Build = SMS_R_System.build01 AND SMS_WindowsServicingStates.branch = SMS_R_System.osbranch01 where SMS_WindowsServicingStates.State = '3'"
-        "LC - Windows 10 Feature Servicing State - Expired" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System  LEFT OUTER JOIN SMS_WindowsServicingStates ON SMS_WindowsServicingStates.Build = SMS_R_System.build01 AND SMS_WindowsServicingStates.branch = SMS_R_System.osbranch01 where SMS_WindowsServicingStates.State = '4'"
+        "Windows 10 Current Branch (CB)" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.OperatingSystemNameandVersion like 'Workstation 10.0%' and SMS_R_System.OSBranch = '0'"
+        "Windows 10 Current Branch for Business (CBB)" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.OperatingSystemNameandVersion like 'Workstation 10.0%' and SMS_R_System.OSBranch = '1'"
+        "Windows 10 Long Term Servicing Branch (LTSB)" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.OperatingSystemNameandVersion like 'Workstation 10.0%' and SMS_R_System.OSBranch = '2'"
+        "Windows 10 Feature Servicing State - Current" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System  LEFT OUTER JOIN SMS_WindowsServicingStates ON SMS_WindowsServicingStates.Build = SMS_R_System.build01 AND SMS_WindowsServicingStates.branch = SMS_R_System.osbranch01 where SMS_WindowsServicingStates.State = '2'"
+        "Windows 10 Feature Servicing State - Expires Soon" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System  LEFT OUTER JOIN SMS_WindowsServicingStates ON SMS_WindowsServicingStates.Build = SMS_R_System.build01 AND SMS_WindowsServicingStates.branch = SMS_R_System.osbranch01 where SMS_WindowsServicingStates.State = '3'"
+        "Windows 10 Feature Servicing State - Expired" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System  LEFT OUTER JOIN SMS_WindowsServicingStates ON SMS_WindowsServicingStates.Build = SMS_R_System.build01 AND SMS_WindowsServicingStates.branch = SMS_R_System.osbranch01 where SMS_WindowsServicingStates.State = '4'"
+        "Windows 10 versioon 1507" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.Build like '10.0.10240%'"
+        "Windows 10 versioon 1511" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.Build like '10.0.10586%'"
+        "Windows 10 versioon 1607" = "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.Build like '10.0.14393%'"
     }
 
     # Create Windows as a Service operational collections
     foreach ($DeviceCollection in $CollectionTable.Keys) {
         # Create Device Collection
         try {
-            Write-Verbose -Message "Creating Device Collection: $($DeviceCollection)"
+            $DeviceCollectionName = ($CollectionNamePrefix + $DeviceCollection)
+            Write-Verbose -Message "Creating Device Collection: $($DeviceCollectionName)"
             $DeviceCollectionRefreshSchedule = New-CMSchedule -Start (Get-Date) -RecurInterval Days -RecurCount 1 -Verbose:$false -ErrorAction Stop
-            New-CMDeviceCollection -LimitingCollectionName $LimitingCollectionName -Name $DeviceCollection -RefreshType Both -RefreshSchedule $DeviceCollectionRefreshSchedule -Verbose:$false -ErrorAction Stop | Out-Null
+            New-CMDeviceCollection -LimitingCollectionName $LimitingCollectionName -Name $DeviceCollectionName -RefreshType Both -RefreshSchedule $DeviceCollectionRefreshSchedule -Verbose:$false -ErrorAction Stop | Out-Null
 
             # Create device collection query membership rule
             try {
-                Write-Verbose -Message "Adding query membership rule for collection: $($DeviceCollection)"
-                Add-CMDeviceCollectionQueryMembershipRule -CollectionName $DeviceCollection -RuleName $DeviceCollection -QueryExpression $CollectionTable[$DeviceCollection] -Verbose:$false -ErrorAction Stop | Out-Null
+                Write-Verbose -Message "Adding query membership rule for collection: $($DeviceCollectionName)"
+                Add-CMDeviceCollectionQueryMembershipRule -CollectionName $DeviceCollectionName -RuleName $DeviceCollection -QueryExpression $CollectionTable[$DeviceCollection] -Verbose:$false -ErrorAction Stop | Out-Null
 
                 # Move collection to folder
                 if ($PSBoundParameters["FolderName"]) {
                     try {
                         Write-Verbose -Message "Moving device collection to folder: $($FolderName)"
-                        $DeviceCollectionObject = Get-CMDeviceCollection -Name $DeviceCollection -Verbose:$false -ErrorAction Stop
+                        $DeviceCollectionObject = Get-CMDeviceCollection -Name $DeviceCollectionName -Verbose:$false -ErrorAction Stop
                         Move-CMObject -InputObject $DeviceCollectionObject -FolderPath "DeviceCollection\$($FolderName)" -Verbose:$false -ErrorAction Stop
                     }
                     catch [System.Exception] {
