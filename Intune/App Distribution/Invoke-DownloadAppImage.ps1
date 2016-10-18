@@ -24,11 +24,17 @@
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
-    [parameter(Mandatory=$true, HelpMessage="Specify the app name to search for within the App Store.")]
+    [parameter(Mandatory=$true, ParameterSetName="AppName", HelpMessage="Specify the app name to search for within the App Store.")]
     [ValidateNotNullOrEmpty()]
     [ValidatePattern("^[A-Za-z\s]*$")]
     [string]$AppName,
-    [parameter(Mandatory=$false, HelpMessage="Path to a folder where the app image will be downloaded to.")]
+
+    [parameter(Mandatory=$true, ParameterSetName="Url", HelpMessage="Specify the URL pointing to the app in the App Store.")]
+    [ValidateNotNullOrEmpty()]
+    [string]$URL,
+
+    [parameter(Mandatory=$true, ParameterSetName="AppName", HelpMessage="Path to a folder where the app image will be downloaded to.")]
+    [parameter(Mandatory=$true, ParameterSetName="Url")]
     [ValidateNotNullOrEmpty()]
     [ValidatePattern("^[A-Za-z]{1}:\\\w+")]
     [ValidateScript({
@@ -52,10 +58,17 @@ Process {
     # Amend app name for usage in search url
     $StoreAppName = ($AppName -replace " ", "+").ToLower()
 
-    # Invoke web request to get unique app link
-    $SearchURL = "https://itunes.apple.com/search?term=$($StoreAppName)&entity=software&limit=1"
-    $SearchWebRequest = Invoke-WebRequest -Uri $SearchURL
-    $AppLink = (ConvertFrom-Json -InputObject $SearchWebRequest).Results | Select-Object -ExpandProperty trackViewUrl
+    switch ($PSCmdlet.ParameterSetName) {
+        "AppName" {
+            # Invoke web request to get unique app link
+            $SearchURL = "https://itunes.apple.com/search?term=$($StoreAppName)&entity=software&limit=1"
+            $SearchWebRequest = Invoke-WebRequest -Uri $SearchURL
+            $AppLink = (ConvertFrom-Json -InputObject $SearchWebRequest).Results | Select-Object -ExpandProperty trackViewUrl
+        }
+        "Url" {
+            $AppLink = $URL
+        }
+    }
 
     # Invoke web request to get app image information
     if ($AppLink -ne $null) {
