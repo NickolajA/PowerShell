@@ -15,7 +15,7 @@
     Azure subscription Id, can be retrieved by running the Get-AzureRmSubscription cmdlet.
 
 .EXAMPLE
-    .\Get-OwnedDevicesByUser.ps1 -UserName user@domain.com
+    .\New-AADAppForUpgradeAnalytics.ps1 -AppDisplayName "ConfigMgrUpgradeAnalytics" -ResourceGroupName "UpgradeAnalytics" -AzureSubscriptionId "<insertyourID>"
 
 .NOTES
     FileName:    New-AADAppForUpgradeAnalytics.ps1
