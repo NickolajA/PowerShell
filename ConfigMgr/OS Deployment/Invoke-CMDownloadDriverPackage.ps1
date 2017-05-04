@@ -32,6 +32,7 @@
     1.0.1 - (2017-04-18) Updated script with better support for multiple vendor entries
     1.0.2 - (2017-04-22) Updated script with support for multiple operating systems driver packages, e.g. Windows 8.1 and Windows 10
     1.0.3 - (2017-05-03) Updated script with support for manufacturer specific Windows 10 versions for HP and Microsoft
+    1.0.4 - (2017-05-04) Updated script to trim any white spaces trailing the computer model detection from WMI
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
@@ -101,7 +102,7 @@ Process {
     Write-CMLogEntry -Value "Driver download package process initiated" -Severity 1
 
     # Determine computer model and manufacturer
-    $ComputerManufacturer = Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty Manufacturer
+    $ComputerManufacturer = (Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty Manufacturer).Trim()
     Write-CMLogEntry -Value "Manufacturer determined as: $($ComputerManufacturer)" -Severity 1
     $ComputerModel = Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty Model
     Write-CMLogEntry -Value "Computer model determined as: $($ComputerModel)" -Severity 1
