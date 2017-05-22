@@ -25,7 +25,7 @@
     Author:      Nickolaj Andersen
     Contact:     @NickolajA
     Created:     2017-03-27
-    Updated:     2017-05-05
+    Updated:     2017-05-22
     
     Version history:
     1.0.0 - (2017-03-27) Script created
@@ -34,6 +34,7 @@
     1.0.3 - (2017-05-03) Updated script with support for manufacturer specific Windows 10 versions for HP and Microsoft
     1.0.4 - (2017-05-04) Updated script to trim any white spaces trailing the computer model detection from WMI
     1.0.5 - (2017-05-05) Updated script to pull the model for Lenovo systems from the correct WMI class
+    1.0.6 - (2017-05-22) Updated script to detect the proper package based upon OS Image version referenced in task sequence when multiple packages are detected
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
@@ -253,7 +254,7 @@ Process {
 
                         # Attempt to set task sequence variable
                         try {
-                            $Package = $PackageList | Sort-Object -Property PackageCreated -Descending | Select-Object -First 1
+                            $Package = $PackageList | Where-Object {$_.PackageName -match $OSImageVersion} | Sort-Object -Property PackageCreated -Descending | Select-Object -First 1
                             $TSEnvironment.Value("OSDDownloadDownloadPackages") = $($Package[0].PackageID)
                             Write-CMLogEntry -Value "Successfully set OSDDownloadDownloadPackages variable with PackageID: $($Package[0].PackageID)" -Severity 1
                         }
