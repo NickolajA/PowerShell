@@ -3,7 +3,7 @@
     Invoke Dell BIOS Update process.
 
 .DESCRIPTION
-    This script will invoke the Dell BIOS update process for the executable residing in the current working directory.
+    This script will invoke the Dell BIOS update process for the executable residing in the path specified for the Path parameter.
 
 .PARAMETER Path
     Specify the path containing the Flash64W.exe and BIOS executable.
