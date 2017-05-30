@@ -9,7 +9,7 @@
     Specify the path containing the Flash64W.exe and BIOS executable.
 
 .PARAMETER Password
-    Specify the BIOS password is necessary.
+    Specify the BIOS password if necessary.
 
 .PARAMETER LogFileName
     Set the name of the log file produced by the flash utility.
