@@ -57,10 +57,10 @@ Process {
 
 	if ($TSEnvironment -ne $null) {
 		# Flash bios upgrade utility file name
-		$FlashUtility = "Flash64W.exe"
+		$FlashUtility = Get-ChildItem -Path $Path -Filter "*.exe" | Where-Object { $_.Name -like "Flash64W.exe" } | Select-Object -ExpandProperty FullName
 
         # Detect BIOS update executable
-        $CurrentBiosFile = Get-ChildItem -Path $Path -Filter "*.exe" | Where-Object { $_.Name -notlike $FlashUtility } | Select-Object -ExpandProperty Name
+        $CurrentBiosFile = Get-ChildItem -Path $Path -Filter "*.exe" | Where-Object { $_.Name -notlike $FlashUtility } | Select-Object -ExpandProperty FullName
 
 		# Set required switches for silent upgrade of the bios and logging
 		$FlashSwitches = "/b=$CurrentBiosFile /s /l=$LogFilePath"
