@@ -5,6 +5,9 @@
 .DESCRIPTION
     This script will invoke the Dell BIOS update process for the executable residing in the current working directory.
 
+.PARAMETER Path
+    Specify the path containing the Flash64W.exe and BIOS executable.
+
 .PARAMETER Password
     Specify the BIOS password is necessary.
 
@@ -12,7 +15,7 @@
     Set the name of the log file produced by the flash utility.
 
 .EXAMPLE
-    .\Invoke-DellBIOSUpdate.ps1
+    .\Invoke-DellBIOSUpdate.ps1 -Path %DellBIOSFiles% -Password "BIOSPassword" -LogFileName "LogFileName.log"
 
 .NOTES
     FileName:    Invoke-DellBIOSUpdate.ps1
@@ -26,6 +29,10 @@
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
+    [parameter(Mandatory=$true, HelpMessage="Specify the path containing the Flash64W.exe and BIOS executable.")]
+    [ValidateNotNullOrEmpty()]
+    [string]$Path,
+
     [parameter(Mandatory=$false, HelpMessage="Specify the BIOS password if necessary.")]
     [ValidateNotNullOrEmpty()]
     [string]$Password,
@@ -53,7 +60,7 @@ Process {
 		$FlashUtility = "Flash64W.exe"
 
         # Detect BIOS update executable
-        $CurrentBiosFile = Get-ChildItem -Path $PSScriptRoot -Filter "*.exe" | Where-Object { $_.Name -notlike $FlashUtility } | Select-Object -ExpandProperty Name
+        $CurrentBiosFile = Get-ChildItem -Path $Path -Filter "*.exe" | Where-Object { $_.Name -notlike $FlashUtility } | Select-Object -ExpandProperty Name
 
 		# Set required switches for silent upgrade of the bios and logging
 		$FlashSwitches = "/b=$CurrentBiosFile /s /l=$LogFilePath"
