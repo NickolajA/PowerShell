@@ -116,13 +116,6 @@ Process {
         $CurrentBiosFile = Get-ChildItem -Path $Path -Filter "*.exe" -Recurse | Where-Object { $_.Name -notlike ($FlashUtility | Split-Path -Leaf) } | Select-Object -ExpandProperty FullName
 		
 		# Set required switches for silent upgrade of the bios
-		$BIOSSwitches = " -noreboot -nopause"
-		if ($Password -ne $null) {
-			# Add password to the flash bios switches
-			$BIOSSwitches = $BIOSSwitches + " /p=$Password"
-		}
-
-        # Set required switches for silent upgrade of the bios
 		$BIOSSwitches = " /l=" + "$LogFileName" + " /s"
 		if ($Password -ne $null)
 		{
