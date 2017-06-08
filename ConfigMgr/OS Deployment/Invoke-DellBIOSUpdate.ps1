@@ -113,7 +113,7 @@ Process {
 		}
 
         # Detect BIOS update executable
-        $CurrentBiosFile = Get-ChildItem -Path $Path -Filter "*.exe" | Where-Object { $_.Name -notlike ($FlashUtility | Split-Path -leaf) } | Select-Object -ExpandProperty FullName
+        $CurrentBiosFile = Get-ChildItem -Path $Path -Filter "*.exe" -Recurse | Where-Object { $_.Name -notlike ($FlashUtility | Split-Path -Leaf) } | Select-Object -ExpandProperty FullName
 		
 		# Set required switches for silent upgrade of the bios
 		$BIOSSwitches = " -noreboot -nopause"
