@@ -22,11 +22,12 @@
     Author:      Maurice Daly
     Contact:     @modaly_it
     Created:     2017-05-30
-    Updated:     2017-06-01
+    Updated:     2017-06-07
     
     Version history:
     1.0.0 - (2017-05-30) Script created
 	1.0.1 - (2017-06-01) Additional checks for both in OSD and normal OS environments
+    1.0.2 - (2017-06-07) Fixed bug in legacy update method
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
@@ -119,6 +120,14 @@ Process {
 		if ($Password -ne $null) {
 			# Add password to the flash bios switches
 			$BIOSSwitches = $BIOSSwitches + " /p=$Password"
+		}
+
+        # Set required switches for silent upgrade of the bios
+		$BIOSSwitches = " /l=" + "$LogFileName" + " /s"
+		if ($Password -ne $null)
+		{
+			# Add password to the flash bios switches
+			$BIOSSwitches = $BIOSSwitches + " /p=" + "$Password"
 		}
 		
 		# Start Bios update process
