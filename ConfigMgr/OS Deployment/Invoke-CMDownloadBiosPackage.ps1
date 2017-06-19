@@ -163,7 +163,10 @@ Process {
 
                         # Attempt to set task sequence variable
                         try {
-                            $TSEnvironment.Value("OSDDownloadDownloadPackages") = $($PackageList[0].PackageID)
+                            $BiosPackageID = $($Package[0].PackageID)
+                            $TSBiosPath = "$($TSEnvironment.Value('_SMSTSMDataPath'))\BIOS"
+                            Start-Process "smsswd.exe" -ArgumentList "/run:$BiosPackageID","robocopy",".\",$TSBiosPath,"/E"
+                            if (Test-Path $TSBiosPath) { $TSEnvironment.Value('OSDBiosPath') = $TSBiosPath }
                             Write-CMLogEntry -Value "Successfully set OSDDownloadDownloadPackages variable with PackageID: $($PackageList[0].PackageID)" -Severity 1
                         }
                         catch [System.Exception] {
@@ -176,7 +179,10 @@ Process {
                         # Attempt to set task sequence variable
                         try {
                             $Package = $PackageList | Where-Object {$_.PackageName -match $OSImageVersion} | Sort-Object -Property PackageCreated -Descending | Select-Object -First 1
-                            $TSEnvironment.Value("OSDDownloadDownloadPackages") = $($Package[0].PackageID)
+                            $BiosPackageID = $($Package[0].PackageID)
+                            $TSBiosPath = "$($TSEnvironment.Value('_SMSTSMDataPath'))\BIOS"
+                            Start-Process "smsswd.exe" -ArgumentList "/run:$BiosPackageID","robocopy",".\",$TSBiosPath,"/E"
+                            if (Test-Path $TSBiosPath) { $TSEnvironment.Value('OSDBiosPath') = $TSBiosPath }
                             Write-CMLogEntry -Value "Successfully set OSDDownloadDownloadPackages variable with PackageID: $($Package[0].PackageID)" -Severity 1
                         }
                         catch [System.Exception] {
