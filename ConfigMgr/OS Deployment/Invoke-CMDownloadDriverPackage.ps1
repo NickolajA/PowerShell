@@ -25,7 +25,7 @@
     Author:      Nickolaj Andersen
     Contact:     @NickolajA
     Created:     2017-03-27
-    Updated:     2017-05-26
+    Updated:     2017-06-26
     
     Version history:
     1.0.0 - (2017-03-27) Script created
@@ -36,6 +36,7 @@
     1.0.5 - (2017-05-05) Updated script to pull the model for Lenovo systems from the correct WMI class
     1.0.6 - (2017-05-22) Updated script to detect the proper package based upon OS Image version referenced in task sequence when multiple packages are detected
     1.0.7 - (2017-05-26) Updated script to filter OS when multiple model matches are found for different OS platforms
+    1.0.8 - (2017-06-26) Updated with improved computer name matching when filtering out packages returned from the web service
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
@@ -194,7 +195,7 @@ Process {
                 # Add packages with matching criteria to list
                 foreach ($Package in $Packages) {
                     # Match model, manufacturer criteria
-                    if (($Package.PackageName -match $ComputerModel) -and ($ComputerManufacturer -match $Package.PackageManufacturer) -and ($Package.PackageName -match $OSName)) {
+                    if (($Package.PackageName -match "\b$($ComputerModel)\b") -and ($ComputerManufacturer -match $Package.PackageManufacturer) -and ($Package.PackageName -match $OSName)) {
                         # Match operating system criteria per manufacturer for Windows 10 packages only
                         if ($OSName -like "Windows 10") {
                             switch ($ComputerManufacturer) {
@@ -255,7 +256,8 @@ Process {
 
                         # Attempt to set task sequence variable
                         try {
-                            $Package = $PackageList | Where-Object {$_.PackageName -match $OSImageVersion} | Sort-Object -Property PackageCreated -Descending | Select-Object -First 1
+                            $Package = $PackageList | Sort-Object -Property PackageCreated -Descending | Select-Object -First 1
+                            #$Package = $PackageList | Where-Object {$_.PackageName -match $OSImageVersion} | Sort-Object -Property PackageCreated -Descending | Select-Object -First 1
                             $TSEnvironment.Value("OSDDownloadDownloadPackages") = $($Package[0].PackageID)
                             Write-CMLogEntry -Value "Successfully set OSDDownloadDownloadPackages variable with PackageID: $($Package[0].PackageID)" -Severity 1
                         }
