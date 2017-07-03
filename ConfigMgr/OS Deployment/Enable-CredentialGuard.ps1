@@ -14,14 +14,15 @@
     Version history:
     1.0.0 - (2016-06-08) Script created
     1.0.1 - (2016-08-10) Script updated to support Windows 10 version 1607 that no longer required the Isolated User Mode feature, since it's embedded in the hypervisor
+    1.0.2 - (2017-07-03) Script updated since Windows 10 version 1607 and higher no longer needs Hyper-V feature for enablind Credential Guard
 
 .NOTES
     FileName:    Enable-CredentialGuard.ps1
     Author:      Nickolaj Andersen
     Contact:     @NickolajA
     Created:     2016-06-08
-    Updated:     2016-08-10
-    Version:     1.0.1
+    Updated:     2017-07-03
+    Version:     1.0.2
 #>
 Begin {
     # Construct TSEnvironment object
@@ -76,23 +77,18 @@ Process {
     # Write beginning of log file
     Write-CMLogEntry -Value "Starting configuration for Credential Guard" -Severity 1
 
-    # Enable required Windows Features for Credential Guard
-    try {
-        Enable-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V-HyperVisor -Online -All -LimitAccess -NoRestart -ErrorAction Stop
-        Write-CMLogEntry -Value "Successfully enabled Microsoft-Hyper-V-HyperVisor feature" -Severity 1
-    }
-    catch [System.Exception] {
-        Write-CMLogEntry -Value "An error occured when enabling Microsoft-Hyper-V-HyperVisor feature, see DISM log for more information" -Severity 3
-    }
-
-    # For version older than Windows 10 version 1607 (build 14939), add the IsolatedUserMode feature as well
     if ([int](Get-WmiObject -Class Win32_OperatingSystem).BuildNumber -lt 14393) {
         try {
+            # For version older than Windows 10 version 1607 (build 14939), enable required Windows Features for Credential Guard
+            Enable-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V-HyperVisor -Online -All -LimitAccess -NoRestart -ErrorAction Stop
+            Write-CMLogEntry -Value "Successfully enabled Microsoft-Hyper-V-HyperVisor feature" -Severity 1
+
+            # For version older than Windows 10 version 1607 (build 14939), add the IsolatedUserMode feature as well
             Enable-WindowsOptionalFeature -FeatureName IsolatedUserMode -Online -All -LimitAccess -NoRestart -ErrorAction Stop
             Write-CMLogEntry -Value "Successfully enabled IsolatedUserMode feature" -Severity 1
         }
         catch [System.Exception] {
-            Write-CMLogEntry -Value "An error occured when enabling IsolatedUserMode feature, see DISM log for more information" -Severity 3
+            Write-CMLogEntry -Value "An error occured when enabling required windows features" -Severity 3
         }
     }
     
