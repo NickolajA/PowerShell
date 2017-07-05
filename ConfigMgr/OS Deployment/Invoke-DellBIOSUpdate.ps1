@@ -19,15 +19,18 @@
 
 .NOTES
     FileName:    Invoke-DellBIOSUpdate.ps1
-    Author:      Maurice Daly
+    Authors:     Maurice Daly & Nickolaj Andersen
     Contact:     @modaly_it
     Created:     2017-05-30
-    Updated:     2017-06-07
+    Updated:     2017-07-04
     
     Version history:
-    1.0.0 - (2017-05-30) Script created
-	1.0.1 - (2017-06-01) Additional checks for both in OSD and normal OS environments
-    1.0.2 - (2017-06-07) Fixed bug in legacy update method
+    1.0.0 - (2017-05-30) Script created (Maurice Daly)
+	1.0.1 - (2017-06-01) Additional checks for both in OSD and normal OS environments (Maurice Daly)
+	1.0.2 - (2017-06-07) Fixed bug in legacy update method (Maurice Daly)
+	1.0.3 - (2017-06-26) Added checks for Flash64W.exe utility and BIOS file presence including some additional logging (Nickolaj Andersen)
+	1.0.4 - (2017-06-30) Fixed an issue where the password was not passed to Flash64W.exe utility. Added logging for this script to a separate file (Nickolaj Andersen)
+	1.0.5 - (2017-07-04) Configured Flash64W.exe as the native update tool for 64-bit Full OS deployments
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
@@ -41,7 +44,7 @@ param(
 
     [parameter(Mandatory=$false, HelpMessage="Set the name of the log file produced by the flash utility.")]
     [ValidateNotNullOrEmpty()]
-    [string]$LogFileName = "DellFlashBiosUpdate.log"
+    [string]$LogFileName = "DellFlashBIOSUpdate.log"
 )
 Begin {
 	# Load Microsoft.SMS.TSEnvironment COM object
@@ -53,83 +56,150 @@ Begin {
 	}
 }
 Process {
+    # Functions
+    function Write-CMLogEntry {
+	    param(
+		    [parameter(Mandatory=$true, HelpMessage="Value added to the log file.")]
+		    [ValidateNotNullOrEmpty()]
+		    [string]$Value,
 
-	# Flash bios upgrade utility file name
+		    [parameter(Mandatory=$true, HelpMessage="Severity for the log entry. 1 for Informational, 2 for Warning and 3 for Error.")]
+		    [ValidateNotNullOrEmpty()]
+            [ValidateSet("1", "2", "3")]
+		    [string]$Severity,
+
+		    [parameter(Mandatory=$false, HelpMessage="Name of the log file that the entry will written to.")]
+		    [ValidateNotNullOrEmpty()]
+		    [string]$FileName = "Invoke-DellBIOSUpdate.log"
+	    )
+	    # Determine log file location
+        $LogFilePath = Join-Path -Path $TSEnvironment.Value("_SMSTSLogPath") -ChildPath $FileName
+
+        # Construct time stamp for log entry
+        $Time = -join @((Get-Date -Format "HH:mm:ss.fff"), "+", (Get-WmiObject -Class Win32_TimeZone | Select-Object -ExpandProperty Bias))
+
+        # Construct date for log entry
+        $Date = (Get-Date -Format "MM-dd-yyyy")
+
+        # Construct context for log entry
+        $Context = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
+
+        # Construct final log entry
+        $LogText = "<![LOG[$($Value)]LOG]!><time=""$($Time)"" date=""$($Date)"" component=""DellBIOSUpdate.log"" context=""$($Context)"" type=""$($Severity)"" thread=""$($PID)"" file="""">"
+	
+	    # Add value to log file
+        try {
+	        Add-Content -Value $LogText -LiteralPath $LogFilePath -ErrorAction Stop
+        }
+        catch [System.Exception] {
+            Write-Warning -Message "Unable to append log entry to Invoke-DellBIOSUpdate.log file. Error message: $($_.Exception.Message)"
+        }
+    }
+
+	# Write log file for script execution
+    Write-CMLogEntry -Value "Initiating script to determine flashing capabilities for Dell BIOS updates" -Severity 1
+
+	# Flash BIOS upgrade utility file name
 	$FlashUtility = Get-ChildItem -Path $Path -Filter "*.exe" -Recurse | Where-Object { $_.Name -like "Flash64W.exe" } | Select-Object -ExpandProperty FullName
-	
-    # Detect BIOS update executable
-    $CurrentBiosFile = Get-ChildItem -Path $Path -Filter "*.exe" -Recurse | Where-Object { $_.Name -notlike ($FlashUtility | Split-Path -leaf) } | Select-Object -ExpandProperty FullName
-	
-	if (($TSEnvironment -ne $null) -and ($TSEnvironment.Value("_SMSTSinWinPE") -eq $true)) {
-		# Set log file location
-		$LogFilePath = Join-Path -Path $TSEnvironment.Value("_SMSTSLogPath") -ChildPath $LogFileName
+	Write-CMLogEntry -Value "Attempting to use flash utility: $($FlashUtility)" -Severity 1
 
-		# Set required switches for silent upgrade of the bios and logging
-		$FlashSwitches = "/b=$CurrentBIOSFile /s /f /l=$LogFilePath"
+	if ($FlashUtility -ne $null) {
+		# Detect BIOS update executable
+		$CurrentBIOSFile = Get-ChildItem -Path $Path -Filter "*.exe" -Recurse | Where-Object { $_.Name -notlike ($FlashUtility | Split-Path -leaf) } | Select-Object -ExpandProperty FullName
+		Write-CMLogEntry -Value "Attempting to use BIOS update file: $($CurrentBIOSFile)" -Severity 1	
 
-		if ($Password -ne $null) {
-			# Add password to the flash bios switches
-			$FlashSwitches = $FlashSwitches + " /p=$Password"
-			Write-host $FlashSwitches
-		}
+		if ($CurrentBIOSFile -ne $null) {
+			# Set log file location
+			$BIOSLogFile = Join-Path -Path $TSEnvironment.Value("_SMSTSLogPath") -ChildPath $LogFileName
 
-		try {
-			# Start flash update process
-			$FlashProcess = Start-Process -FilePath $FlashUtility -ArgumentList "$FlashSwitches" -Passthru -Wait
-			
-            # Set reboot flag if restart required determined (exit code 2)
-			if ($FlashProcess.ExitCode -eq 2) {
-				# Set reboot required flag
-				$TSEnvironment.Value("SMSTSBiosUpdateRebootRequired") = "True"
-				$TSEnvironment.Value("SMSTSBiosInOSUpdateRequired") = "False"
+			# Set required switches for silent upgrade of the bios and logging
+			$FlashSwitches = "/b=$($CurrentBIOSFile) /s /f /l=$($BIOSLogFile)"
+
+			# Add password to the Flash64W.exe switches
+			if ($PSBoundParameters["Password"]) {
+				if (-not([System.String]::IsNullOrEmpty($Password))) {
+					$FlashSwitches = $FlashSwitches + " /p=$($Password)"
+				}
+			}	
+
+			if (($TSEnvironment -ne $null) -and ($TSEnvironment.Value("_SMSTSinWinPE") -eq $true)) {
+				Write-CMLogEntry -Value "Current environment is determined as WinPE" -Severity 1
+
+				try {
+					# Start flash update process
+					Write-CMLogEntry -Value "Using the following switches for Flash64W.exe: $($FlashSwitches -replace $Password, "<password removed>")" -Severity 1
+					$FlashProcess = Start-Process -FilePath $FlashUtility -ArgumentList $FlashSwitches -Passthru -Wait -ErrorAction Stop
+					
+					# Set reboot flag if restart required determined (exit code 2)
+					if ($FlashProcess.ExitCode -eq 2) {
+						# Set reboot required flag
+						$TSEnvironment.Value("SMSTSBiosUpdateRebootRequired") = "True"
+						$TSEnvironment.Value("SMSTSBiosInOSUpdateRequired") = "False"
+					}
+					else {
+						$TSEnvironment.Value("SMSTSBiosUpdateRebootRequired") = "False"
+						$TSEnvironment.Value("SMSTSBiosInOSUpdateRequired") = "True"
+					}
+				}
+				catch [System.Exception] {
+					Write-CMLogEntry -Value "An error occured while updating the system BIOS during OS offline phase. Error message: $($_.Exception.Message)" -Severity 3 ; exit 1
+				}
 			}
 			else {
-				$TSEnvironment.Value("SMSTSBiosUpdateRebootRequired") = "False"
-				$TSEnvironment.Value("SMSTSBiosInOSUpdateRequired") = "True"
+				# Used as a fall back for systems that do not support the Flash64w update tool
+				# Used in a later section of the task sequence (after Setup Windows and ConfigMgr step)
+
+				Write-CMLogEntry -Value "Current environment is determined as FullOS" -Severity 1
+				
+				# Detect Bitlocker Status
+				$OSVolumeEncypted = if ((Manage-Bde -Status C:) -match "Protection On") { Write-Output $true } else { Write-Output $false }
+				
+				# Supend Bitlocker if $OSVolumeEncypted is $true, remember to re-enable BitLocker after the flashing has occurred
+				if ($OSVolumeEncypted -eq $true) {
+					Write-CMLogEntry -Value "Suspending BitLocker protected volume: C:" -Severity 1
+					Manage-Bde -Protectors -Disable C:
+				}
+				
+				# Start BIOS update process
+				try
+				{										
+					if (([Environment]::Is64BitOperatingSystem) -eq $true) {
+						Write-CMLogEntry -Value "Starting 64-bit flash BIOS update process" -Severity 1
+						Write-CMLogEntry -Value "Using the following switches for BIOS file: $($FlashSwitches -replace $Password, "<Password Removed>")" -Severity 1
+
+						# Update BIOS using Flash64W.exe
+						$FlashUpdate = Start-Process -FilePath $FlashUtility -ArgumentList $FlashSwitches -Passthru -Wait -ErrorAction Stop
+					}
+					else {
+						# Set required switches for silent upgrade of the BIOS
+						$FileSwitches = " /l=$($BIOSLogFile) /s"
+
+						# Add password to switches
+						if ($PSBoundParameters["Password"]) {
+							if (-not([System.String]::IsNullOrEmpty($Password))) {
+								$FileSwitches = $FileSwitches + " /p=$($Password)"
+							}
+						}
+
+						Write-CMLogEntry -Value "Starting 32-bit flash BIOS update process" -Severity 1
+						Write-CMLogEntry -Value "Using the following switches for BIOS file: $($FileSwitches -replace $Password, "<Password Removed>")" -Severity 1						
+
+						# Update BIOS using update file
+						$FileUpdate = Start-Process -FilePath $CurrentBIOSFile -ArgumentList $FileSwitches -PassThru -Wait -ErrorAction Stop
+					}
+					
+				}
+				catch [System.Exception]
+				{
+					Write-CMLogEntry -Value "An error occured while updating the system BIOS in OS online phase. Error message: $($_.Exception.Message)" -Severity 3; exit 1
+				}
 			}
 		}
-		catch [System.Exception] {
-			Write-Warning -Message "An error occured while updating the system bios. Error message: $($_.Exception.Message)"; exit 1
+		else {
+			Write-CMLogEntry -Value "Unable to locate the current BIOS update file" -Severity 2 ; exit 1
 		}
 	}
 	else {
-		# Used as a fall back for systems that do not support the Flash64w update tool
-		# Used in a later section of the task sequence
-		
-		# Set log file location based for OSD and standard deployments
-		if ($TSEnvironment -ne $null) {
-		$LogFilePath = Join-Path -Path $TSEnvironment.Value("_SMSTSLogPath") -ChildPath $LogFileName
-		}
-		else {
-		$LogFilePath = Join-Path -Path "$env:Temp\" -ChildPath $LogFileName
-		}
-		
-		# Detect Bitlocker Status
-		$OSVolumeEncypted = if ((Manage-Bde -Status C:) -match "Protection On"){Write-Output $True}else{Write-Output $False}
-		
-		# Supend Bitlocker if $OSVolumeEncypted is $true
-		if ($OSVolumeEncypted -eq $true) {
-		Manage-Bde -Protectors -Disable C:
-		}
-
-        # Detect BIOS update executable
-        $CurrentBiosFile = Get-ChildItem -Path $Path -Filter "*.exe" -Recurse | Where-Object { $_.Name -notlike ($FlashUtility | Split-Path -Leaf) } | Select-Object -ExpandProperty FullName
-		
-		# Set required switches for silent upgrade of the bios
-		$BIOSSwitches = " /l=" + "$LogFileName" + " /s"
-		if ($Password -ne $null)
-		{
-			# Add password to the flash bios switches
-			$BIOSSwitches = $BIOSSwitches + " /p=" + "$Password"
-		}
-		
-		# Start Bios update process
-        try {
-			$BiosUpdateProcess = Start-Process -FilePath $CurrentBIOSFile -ArgumentList $BIOSSwitches -PassThru -Wait
-		}
-		catch [System.Exception]
-		{
-			Write-Warning -Message "An error occured while updating the system bios. Error message: $($_.Exception.Message)"; exit 1
-		}
+		Write-CMLogEntry -Value "Unable to locate the Flash64W.exe utility" -Severity 2 ; exit 1
 	}
 }
