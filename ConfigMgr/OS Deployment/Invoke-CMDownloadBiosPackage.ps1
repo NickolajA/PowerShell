@@ -22,13 +22,14 @@
 
 .NOTES
     FileName:    Invoke-CMDownloadBIOSPackage.ps1
-    Author:      Nickolaj Andersen
-    Contact:     @NickolajA
+    Author:      Nickolaj Andersen & Maurice Daly
+    Contact:     @NickolajA / @modaly_it
     Created:     2017-05-22
-    Updated:     2017-05-22
+    Updated:     2017-07-07
     
     Version history:
-    1.0.0 - (2017-05-22) Script created
+    1.0.0 - (2017-05-22) Script created (Nickolaj Andersen)
+    1.0.1 - (2017-07-07) Updated with BIOS revision checker. Initially used for Dell systems (Maurice Daly)
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
@@ -94,6 +95,41 @@ Process {
         }
     }
 
+    function Compare-BIOSVersion {
+		param (
+			[parameter(Mandatory = $true, HelpMessage = "Current available BIOS version.")]
+			[ValidateNotNullOrEmpty()]
+			[string]$AvailableBIOSVersion
+		)
+		
+		# Obtain current BIOS release
+		$CurrentBIOSVersion = (Get-CIMInstance -ClassName CIM_BIOSElement -NameSpace root\cimv2).SoftwareElementID
+		
+		# Determine BIOS revision format
+		if ($CurrentBIOSVersion -like "*.*.*") {
+			# Compare current BIOS release to available
+			if ([System.Version]$AvailableBIOSVersion -gt [System.Version]$CurrentBIOSVersion) {
+				# Write output to task sequence variable
+				$TSEnvironment.Value("NewBIOSAvailable") = $true
+				Write-CMLogEntry -Value "A new version of the BIOS has been detected. Current release $($CurrentBIOSVersion) will be replaced by $($AvailableBIOSVersion)." -Severity 1
+			}
+		}
+		elseif ($CurrentBIOSVersion -like "A*") {
+			# Compare current BIOS release to available
+			if ($AvailableBIOSVersion -like "*.*.*") {
+				# Assume that the bios is new as moving from Axx to x.x.x formats
+				# Write output to task sequence variable
+				$TSEnvironment.Value("NewBIOSAvailable") = $true
+				Write-CMLogEntry -Value "A new version of the BIOS has been detected. Current release $CurrentBIOSVersion will be replaced by $AvailableBIOSVersion." -Severity 1
+			}
+			elseif ($AvailableBIOSVersion -gt $CurrentBIOSVersion) {
+				# Write output to task sequence variable
+				$TSEnvironment.Value("NewBIOSAvailable") = $true
+				Write-CMLogEntry -Value "A new version of the BIOS has been detected. Current release $CurrentBIOSVersion will be replaced by $AvailableBIOSVersion." -Severity 1
+			}
+		}
+	}
+
     # Write log file for script execution
     Write-CMLogEntry -Value "BIOS download package process initiated" -Severity 1
 
@@ -145,20 +181,24 @@ Process {
             foreach ($Package in $Packages) {
                 # Match model, manufacturer criteria
                 if (($Package.PackageName -match $ComputerModel) -and ($ComputerManufacturer -match $Package.PackageManufacturer)) {                            
-                        Write-CMLogEntry -Value "Match found for computer model and manufacturer: $($Package.PackageName) ($($Package.PackageID))" -Severity 1
-                        $PackageList.Add($Package) | Out-Null
-                    }
-                    else {
-                        Write-CMLogEntry -Value "Package does not meet computer model and manufacturer criteria: $($Package.PackageName) ($($Package.PackageID))" -Severity 2
-                    }
+                    Write-CMLogEntry -Value "Match found for computer model and manufacturer: $($Package.PackageName) ($($Package.PackageID))" -Severity 1
+                    $PackageList.Add($Package) | Out-Null
                 }
+                else {
+                    Write-CMLogEntry -Value "Package does not meet computer model and manufacturer criteria: $($Package.PackageName) ($($Package.PackageID))" -Severity 2
+                }
+            }
 
-                # Process matching items in package list and set task sequence variable
-                if ($PackageList -ne $null) {
-                    # Determine the most current package from list
-                    if ($PackageList.Count -eq 1) {
-                        Write-CMLogEntry -Value "BIOS package list contains a single match, attempting to set task sequence variable" -Severity 1
+            # Process matching items in package list and set task sequence variable
+            if ($PackageList -ne $null) {
+                # Determine the most current package from list
+                if ($PackageList.Count -eq 1) {
+                    Write-CMLogEntry -Value "BIOS package list contains a single match, attempting to set task sequence variable" -Severity 1
 
+                    # Check if BIOS package is newer than currently installed
+                    Compare-BIOSVersion -AvailableBIOSVersion $PackageList[0].PackageVersion
+
+                    if ($TSEnvironment.Value("NewBIOSAvailable") -eq $true) {
                         # Attempt to set task sequence variable
                         try {
                             $TSEnvironment.Value("OSDDownloadDownloadPackages") = $($PackageList[0].PackageID)
@@ -168,30 +208,44 @@ Process {
                             Write-CMLogEntry -Value "An error occured while setting OSDDownloadDownloadPackages variable. Error message: $($_.Exception.Message)" -Severity 3 ; exit 1
                         }
                     }
-                    elseif ($PackageList.Count -ge 2) {
-                        Write-CMLogEntry -Value "BIOS package list contains multiple matches, attempting to set task sequence variable" -Severity 1
+                    else {
+                        Write-CMLogEntry -Value "BIOS is already up to date with the latest $($PackageList[0].PackageVersion) version" -Severity 1
+                    }
+                }
+                elseif ($PackageList.Count -ge 2) {
+                    Write-CMLogEntry -Value "BIOS package list contains multiple matches, attempting to set task sequence variable" -Severity 1
 
+                    # Determine the latest BIOS package by creation date
+                    $Package = $PackageList | Sort-Object -Property PackageCreated -Descending | Select-Object -First 1
+
+                    # Check if bios package is newer than currently installed
+                    Compare-BIOSVersion -AvailableBIOSVersion $Package.PackageVersion
+
+                    if ($TSEnvironment.Value("NewBIOSAvailable") -eq $true) {
                         # Attempt to set task sequence variable
                         try {
-                            $Package = $PackageList | Sort-Object -Property PackageCreated -Descending | Select-Object -First 1
-                            $TSEnvironment.Value("OSDDownloadDownloadPackages") = $($Package[0].PackageID)
-                            Write-CMLogEntry -Value "Successfully set OSDDownloadDownloadPackages variable with PackageID: $($Package[0].PackageID)" -Severity 1
+                            $TSEnvironment.Value("OSDDownloadDownloadPackages") = $($Package.PackageID)
+                            Write-CMLogEntry -Value "Successfully set OSDDownloadDownloadPackages variable with PackageID: $($Package.PackageID)" -Severity 1
                         }
                         catch [System.Exception] {
                             Write-CMLogEntry -Value "An error occured while setting OSDDownloadDownloadPackages variable. Error message: $($_.Exception.Message)" -Severity 3 ; exit 1
-                        }
+                        }                        
                     }
                     else {
-                        Write-CMLogEntry -Value "Unable to determine a matching BIOS package from list since an unsupported count was returned from package list, bailing out" -Severity 2 ; exit 1
+                        Write-CMLogEntry -Value "BIOS is already up to date with the latest $($Package.PackageVersion) version" -Severity 1
                     }
                 }
                 else {
-                    Write-CMLogEntry -Value "Empty BIOS package list detected, bailing out" -Severity 2 ; exit 1
+                    Write-CMLogEntry -Value "Unable to determine a matching BIOS package from list since an unsupported count was returned from package list, bailing out" -Severity 2 ; exit 1
                 }
             }
             else {
-                Write-CMLogEntry -Value "BIOS package list returned from web service did not contain any objects matching the computer model and manufacturer, bailing out" -Severity 2 ; exit 1
+                Write-CMLogEntry -Value "Empty BIOS package list detected, bailing out" -Severity 2 ; exit 1
             }
+        }
+        else {
+            Write-CMLogEntry -Value "BIOS package list returned from web service did not contain any objects matching the computer model and manufacturer, bailing out" -Severity 2 ; exit 1
+        }
     }
     else {
         Write-CMLogEntry -Value "This script is supported on Dell systems only at this point, bailing out" -Severity 2 ; exit 1
