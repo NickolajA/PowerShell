@@ -25,11 +25,12 @@
     Author:      Nickolaj Andersen & Maurice Daly
     Contact:     @NickolajA / @modaly_it
     Created:     2017-05-22
-    Updated:     2017-07-07
+    Updated:     2017-07-13
     
     Version history:
     1.0.0 - (2017-05-22) Script created (Nickolaj Andersen)
     1.0.1 - (2017-07-07) Updated with BIOS revision checker. Initially used for Dell systems (Maurice Daly)
+    1.0.2 - (2017-07-13) Updated with support for downloading BIOS packages for Lenovo models (Maurice Daly)
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
@@ -142,6 +143,10 @@ Process {
         "*Dell*" {
             $ComputerManufacturer = "Dell"
             $ComputerModel = (Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty Model).Trim()
+        }
+        "*Lenovo*" {
+            $ComputerManufacturer = "Lenovo"
+            $ComputerModel = Get-WmiObject -Class Win32_ComputerSystemProduct | Select-Object -ExpandProperty Version
         }
     }
     Write-CMLogEntry -Value "Computer model determined as: $($ComputerModel)" -Severity 1
