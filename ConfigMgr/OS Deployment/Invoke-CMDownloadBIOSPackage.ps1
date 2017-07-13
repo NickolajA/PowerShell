@@ -103,7 +103,7 @@ Process {
 		)
 		
 		# Obtain current BIOS release
-		$CurrentBIOSVersion = (Get-CIMInstance -ClassName CIM_BIOSElement -NameSpace root\cimv2).SoftwareElementID
+		$CurrentBIOSVersion = (Get-WmiObject -Class Win32_BIOS | Select-Object -ExpandProperty SMBIOSBIOSVersion).Trim()
 		
 		# Determine BIOS revision format
 		if ($CurrentBIOSVersion -like "*.*.*") {
@@ -244,10 +244,10 @@ Process {
             }
         }
         else {
-            Write-CMLogEntry -Value "BIOS package list returned from web service did not contain any objects matching the computer model and manufacturer, bailing out" -Severity 2 ; exit 1
+            Write-CMLogEntry -Value "BIOS package list returned from web service did not contain any objects matching the computer model and manufacturer, bailing out" -Severity 1
         }
     }
     else {
-        Write-CMLogEntry -Value "This script is supported on Dell systems only at this point, bailing out" -Severity 2 ; exit 1
+        Write-CMLogEntry -Value "This script is supported on Dell systems only at this point, bailing out" -Severity 1
     }
 }
