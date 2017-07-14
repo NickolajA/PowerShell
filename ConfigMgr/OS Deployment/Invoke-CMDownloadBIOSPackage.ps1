@@ -245,7 +245,7 @@ Process {
                 }
             }
             else {
-                Write-CMLogEntry -Value "Empty BIOS package list detected, bailing out" -Severity 2 ; exit 1
+                Write-CMLogEntry -Value "Empty BIOS package list detected, bailing out" -Severity 1
             }
         }
         else {
