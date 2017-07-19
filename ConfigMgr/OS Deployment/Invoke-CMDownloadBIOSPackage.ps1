@@ -25,12 +25,13 @@
     Author:      Nickolaj Andersen & Maurice Daly
     Contact:     @NickolajA / @modaly_it
     Created:     2017-05-22
-    Updated:     2017-07-13
+    Updated:     2017-07-19
     
     Version history:
     1.0.0 - (2017-05-22) Script created (Nickolaj Andersen)
     1.0.1 - (2017-07-07) Updated with BIOS revision checker. Initially used for Dell systems (Maurice Daly)
     1.0.2 - (2017-07-13) Updated with support for downloading BIOS packages for Lenovo models (Maurice Daly)
+    1.0.3 - (2017-07-19) Updated with additional condition for matching Lenovo models (Maurice Daly)
 #>
 [CmdletBinding(SupportsShouldProcess=$true)]
 param(
@@ -178,8 +179,8 @@ Process {
     # Set script error preference variable
     $ErrorActionPreference = "Stop"
 
-    # Validate Dell system was detected
-    if ($ComputerManufacturer -eq "Dell") {
+     # Validate supported system was detected
+    if ($ComputerManufacturer -eq "Dell" -or $ComputerManufacturer -eq "Lenovo") {
         # Process packages returned from web service
         if ($Packages -ne $null) {
             # Add packages with matching criteria to list
@@ -189,6 +190,10 @@ Process {
                     Write-CMLogEntry -Value "Match found for computer model and manufacturer: $($Package.PackageName) ($($Package.PackageID))" -Severity 1
                     $PackageList.Add($Package) | Out-Null
                 }
+				elseif (($Package.PackageName -match $(($ComputerModel).Split(' ') | Select-Object -Last 1)) -and ($ComputerManufacturer -eq "Lenovo")){
+                    Write-CMLogEntry -Value "Match found for computer model and manufacturer: $($Package.PackageName) ($($Package.PackageID))" -Severity 1
+                    $PackageList.Add($Package) | Out-Null	
+				}					
                 else {
                     Write-CMLogEntry -Value "Package does not meet computer model and manufacturer criteria: $($Package.PackageName) ($($Package.PackageID))" -Severity 2
                 }
@@ -244,7 +249,7 @@ Process {
                     Write-CMLogEntry -Value "Unable to determine a matching BIOS package from list since an unsupported count was returned from package list, bailing out" -Severity 2 ; exit 1
                 }
             }
-            else {
+			else {
                 Write-CMLogEntry -Value "Empty BIOS package list detected, bailing out" -Severity 1
             }
         }
@@ -253,6 +258,6 @@ Process {
         }
     }
     else {
-        Write-CMLogEntry -Value "This script is supported on Dell systems only at this point, bailing out" -Severity 1
+        Write-CMLogEntry -Value "This script is supported on Dell and Lenovo systems only at this point, bailing out" -Severity 1
     }
 }
