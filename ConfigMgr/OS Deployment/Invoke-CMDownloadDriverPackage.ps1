@@ -164,7 +164,8 @@ Process {
     # Determine OS Image version for running task sequence from web service
     try {
         $TSPackageID = $TSEnvironment.Value("_SMSTSPackageID")
-        $OSImageVersion = $WebService.GetCMOSImageVersionForTaskSequence($SecretKey, $TSPackageID)
+        $versionAry = ($WebService.GetCMOSImageVersionForTaskSequence($SecretKey, $TSPackageID)).split('.')
+        $OSImageVersion = $versionAry[0] + '.' + $versionAry[1] + '.' + $versionAry[2] + '.0'
         Write-CMLogEntry -Value "Retrieved OS Image version from web service: $($OSImageVersion)" -Severity 1
     }
     catch [System.Exception] {
