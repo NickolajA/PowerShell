@@ -189,7 +189,7 @@ Process {
     if ($OSName -ne $null) {
         # Validate not virtual machine
         $ComputerSystemType = Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty "Model"
-        if ($ComputerSystemType -notin @("Virtual Machine", "VMware Virtual Platform", "VirtualBox", "HVM domU", "KVM")) {
+        if (@("Virtual Machine", "VMware Virtual Platform", "VirtualBox", "HVM domU", "KVM") -notcontains $ComputerSystemType ) {
             # Process packages returned from web service
             if ($Packages -ne $null) {
                 # Add packages with matching criteria to list
