@@ -20,6 +20,7 @@
     ONSYSTEMSTARTUP
     ONUSERLOGON
     ONUSERLOGOFF
+    OPTIONALPREDOWNLOAD
     WINDOWS_CE
     DONOT_FALLBACK
     ENABLE_TS_FROM_CD_AND_PXE
@@ -74,6 +75,7 @@ param(
     "ONSYSTEMSTARTUP",
     "ONUSERLOGON",
     "ONUSERLOGOFF",
+    "OPTIONALPREDOWNLOAD",
     "WINDOWS_CE",
     "DONOT_FALLBACK",
     "ENABLE_TS_FROM_CD_AND_PXE",
@@ -138,6 +140,7 @@ Begin {
             "ONSYSTEMSTARTUP" { $Bitwise = "0x00000100" }
             "ONUSERLOGON" { $Bitwise = "0x00000200" }
             "ONUSERLOGOFF" { $Bitwise = "0x00000400" }
+            "OPTIONALPREDOWNLOAD" { $Bitwise = "0x00001000" }
             "WINDOWS_CE" { $Bitwise = "0x00008000" }
             "DONOT_FALLBACK" { $Bitwise = "0x00020000" }
             "ENABLE_TS_FROM_CD_AND_PXE" { $Bitwise = "0x00040000" }
